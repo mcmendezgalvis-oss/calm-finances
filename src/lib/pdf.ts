@@ -1,6 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import type { AppState, MonthBudget } from "@/store/types";
+import type { AppState } from "@/store/types";
 import { GROUP_ORDER, groupTotals } from "./finance";
 
 const GROUP_LABELS: Record<string, string> = {
@@ -179,4 +179,141 @@ export function generateYearReport(state: AppState, year: number) {
   }
 
   doc.save(`Finanzas-en-Calma-${year}.pdf`);
+}
+
+function header(doc: jsPDF, title: string, subtitle: string) {
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(114, 47, 55); // wine
+  doc.setFontSize(22);
+  doc.text("Finanzas en Calma", 40, 60);
+  doc.setFontSize(14);
+  doc.setTextColor(45, 58, 45);
+  doc.text(title, 40, 84);
+  doc.setFontSize(10);
+  doc.setTextColor(140, 115, 109);
+  doc.text(subtitle, 40, 100);
+}
+
+function footer(doc: jsPDF) {
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(9);
+    doc.setTextColor(140, 115, 109);
+    doc.text("La tranquilidad financiera se construye paso a paso.", pageW / 2, doc.internal.pageSize.getHeight() - 30, { align: "center" });
+  }
+}
+
+function monthsInRange(from: Date, to: Date): string[] {
+  const out: string[] = [];
+  const d = new Date(from.getFullYear(), from.getMonth(), 1);
+  const end = new Date(to.getFullYear(), to.getMonth(), 1);
+  while (d <= end) {
+    out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+    d.setMonth(d.getMonth() + 1);
+  }
+  return out;
+}
+
+export function generateBudgetVsRealReport(state: AppState, from: Date, to: Date, label: string) {
+  const doc = new jsPDF({ unit: "pt", format: "letter" });
+  const currency = state.profile.currency;
+  header(doc, "Presupuesto vs Real", label);
+
+  const keys = monthsInRange(from, to);
+  const rows: (string | number)[][] = [];
+  for (const key of keys) {
+    const m = state.months[key];
+    if (!m) continue;
+    const t = groupTotals(m.lines);
+    for (const g of GROUP_ORDER) {
+      const diff = g === "income" ? t[g].real - t[g].planned : t[g].planned - t[g].real;
+      rows.push([key, g, fmt(t[g].planned, currency), fmt(t[g].real, currency), (diff >= 0 ? "+" : "") + fmt(diff, currency)]);
+    }
+  }
+  if (rows.length === 0) rows.push(["—", "Sin datos", "", "", ""]);
+  autoTable(doc, {
+    startY: 120,
+    head: [["Mes", "Rubro", "Plan", "Real", "Diferencia"]],
+    body: rows,
+    styles: { font: "helvetica", fontSize: 9 },
+    headStyles: { fillColor: [114, 47, 55], textColor: 255 },
+    margin: { left: 40, right: 40 },
+  });
+  footer(doc);
+  doc.save(`Presupuesto-vs-Real-${Date.now()}.pdf`);
+}
+
+export function generateDebtDetailReport(state: AppState, debtId: string, from: Date, to: Date, label: string) {
+  const doc = new jsPDF({ unit: "pt", format: "letter" });
+  const currency = state.profile.currency;
+  const debt = state.debts.find((d) => d.id === debtId);
+  if (!debt) return;
+  header(doc, `Deuda: ${debt.name}`, label);
+
+  doc.setFontSize(10);
+  doc.setTextColor(45, 58, 45);
+  doc.text(`Saldo inicial: ${fmt(debt.initialBalance, currency)}    Saldo actual: ${fmt(debt.currentBalance, currency)}    Mínimo: ${fmt(debt.minimumPayment, currency)}`, 40, 120);
+
+  const tFrom = from.getTime();
+  const tTo = to.getTime() + 86400_000;
+  const rows = debt.adjustments
+    .filter((a) => {
+      const ts = new Date(a.date).getTime();
+      return ts >= tFrom && ts <= tTo;
+    })
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .map((a) => [
+      new Date(a.date).toLocaleDateString(),
+      a.delta < 0 ? "Pago / abono" : "Ajuste banco",
+      (a.delta >= 0 ? "+" : "") + fmt(a.delta, currency),
+      a.note ?? "",
+    ]);
+  if (rows.length === 0) rows.push(["—", "Sin movimientos", "", ""]);
+  autoTable(doc, {
+    startY: 140,
+    head: [["Fecha", "Tipo", "Monto", "Nota"]],
+    body: rows,
+    styles: { font: "helvetica", fontSize: 9 },
+    headStyles: { fillColor: [114, 47, 55], textColor: 255 },
+    margin: { left: 40, right: 40 },
+  });
+  footer(doc);
+  doc.save(`Deuda-${debt.name}-${Date.now()}.pdf`);
+}
+
+export function generateShieldMovementsReport(state: AppState, shieldId: string, from: Date, to: Date, label: string) {
+  const doc = new jsPDF({ unit: "pt", format: "letter" });
+  const currency = state.profile.currency;
+  const shield = state.shields.find((s) => s.id === shieldId);
+  if (!shield) return;
+  header(doc, `Escudo: ${shield.name}`, label);
+
+  doc.setFontSize(10);
+  doc.setTextColor(45, 58, 45);
+  doc.text(`Meta: ${fmt(shield.goal, currency)}    Saldo actual: ${fmt(shield.balance, currency)}`, 40, 120);
+
+  const tFrom = from.getTime();
+  const tTo = to.getTime() + 86400_000;
+  const rows = shield.history
+    .filter((h) => { const ts = new Date(h.date).getTime(); return ts >= tFrom && ts <= tTo; })
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .map((h) => [
+      new Date(h.date).toLocaleDateString(),
+      h.type === "deposit" ? "Aporte" : "Retiro",
+      (h.type === "deposit" ? "+" : "−") + fmt(h.amount, currency),
+      h.note ?? "",
+    ]);
+  if (rows.length === 0) rows.push(["—", "Sin movimientos", "", ""]);
+  autoTable(doc, {
+    startY: 140,
+    head: [["Fecha", "Tipo", "Monto", "Nota"]],
+    body: rows,
+    styles: { font: "helvetica", fontSize: 9 },
+    headStyles: { fillColor: [107, 142, 107], textColor: 255 },
+    margin: { left: 40, right: 40 },
+  });
+  footer(doc);
+  doc.save(`Fondo-${shield.name}-${Date.now()}.pdf`);
 }
