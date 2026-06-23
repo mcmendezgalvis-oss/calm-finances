@@ -59,6 +59,40 @@ function previousMonthKey(monthKey: string): string {
   return monthKeyOf(d);
 }
 
+function trophyKey(kind: TrophyKind, contextId?: string, monthKey?: string) {
+  return `${kind}::${contextId ?? ""}::${monthKey ?? ""}`;
+}
+
+function maybeAward(
+  trophies: Trophy[],
+  kind: TrophyKind,
+  label: string,
+  contextId?: string,
+  monthKey?: string,
+): Trophy[] {
+  const key = trophyKey(kind, contextId, monthKey);
+  if (trophies.some((t) => trophyKey(t.kind, t.contextId, t.monthKey) === key)) return trophies;
+  return [
+    ...trophies,
+    {
+      id: uid(),
+      kind,
+      label,
+      earnedAt: new Date().toISOString(),
+      contextId,
+      monthKey,
+    },
+  ];
+}
+
+function maybeAwardShieldTrophy(trophies: Trophy[], reached: 0 | 1 | 2 | 3): Trophy[] {
+  let out = trophies;
+  if (reached >= 1) out = maybeAward(out, "shield_l1", "Escudo Inicial completado", EMERGENCY_FUND_ID);
+  if (reached >= 2) out = maybeAward(out, "shield_l2", "Nivel 2: 1–3 meses de gastos", EMERGENCY_FUND_ID);
+  if (reached >= 3) out = maybeAward(out, "shield_l3", "Nivel 3: 3–6 meses de gastos", EMERGENCY_FUND_ID);
+  return out;
+}
+
 function syncLinkedLines(state: AppState, monthKey: string): MonthBudget {
   const month = state.months[monthKey] ?? emptyMonth(monthKey);
   const lines = [...month.lines];
