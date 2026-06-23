@@ -14,6 +14,11 @@ export interface BudgetLine {
 export interface MonthBudget {
   monthKey: string;
   lines: BudgetLine[];
+  closed?: boolean;
+  closedAt?: string;
+  snapshot?: { lines: BudgetLine[]; closedAt: string };
+  /** ID of the auto-generated "Sobrante mes anterior" line that this month created in monthKey+1 (if any) */
+  surplusCarryForwardId?: string;
 }
 
 export interface ShieldTx {
@@ -34,6 +39,7 @@ export interface Shield {
   balance: number;
   createdAt: string;
   history: ShieldTx[];
+  archived?: boolean;
 }
 
 export interface DebtAdjustment {
