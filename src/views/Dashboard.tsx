@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  LineChart, Line,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList, Legend,
   AreaChart, Area,
 } from "recharts";
 import { FileDown } from "lucide-react";
@@ -21,6 +20,7 @@ export function Dashboard() {
   const profile = state.profile;
   const ensureMonth = state.ensureMonth;
   const [monthKey] = useState(currentMonthKey());
+  const [periodMode, setPeriodMode] = useState<"month" | "year">("month");
 
   useEffect(() => { ensureMonth(monthKey); }, [monthKey, ensureMonth]);
 
@@ -35,11 +35,11 @@ export function Dashboard() {
     return arr;
   }, [totals, t]);
 
-  // last 6 months income vs expenses
   const evolutionData = useMemo(() => {
     const data: { month: string; income: number; expenses: number }[] = [];
     const today = new Date();
-    for (let i = 5; i >= 0; i--) {
+    const months = periodMode === "year" ? 12 : 6;
+    for (let i = months - 1; i >= 0; i--) {
       const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
       const key = monthKeyOf(d);
       const m = state.months[key];
@@ -51,23 +51,22 @@ export function Dashboard() {
       });
     }
     return data;
-  }, [state.months, lang]);
+  }, [state.months, lang, periodMode]);
 
-  const debtCurveData = useMemo(() => {
-    // Approximate debt curve from current state: month buckets vs sum of currentBalances at "now"
-    // For demo without per-payment history, show initial vs current total over the last 6 months.
-    const totalInitial = state.debts.reduce((s, d) => s + d.initialBalance, 0);
-    const totalNow = state.debts.reduce((s, d) => s + d.currentBalance, 0);
-    const steps = 6;
-    return Array.from({ length: steps }, (_, i) => ({
-      month: `T-${steps - i - 1}`,
-      total: totalInitial - ((totalInitial - totalNow) * (i / (steps - 1))),
+  const debtBars = useMemo(() => {
+    const active = state.debts.filter((d) => !d.paid).sort((a, b) => a.currentBalance - b.currentBalance);
+    const paid = state.debts.filter((d) => d.paid);
+    return [...active, ...paid].map((d, i) => ({
+      label: `D${i + 1}`,
+      name: d.name,
+      current: d.currentBalance,
+      tag: `D${i + 1}=${fmt(d.currentBalance, currency)}${d.paid ? " ✓" : ""}`,
     }));
-  }, [state.debts]);
+  }, [state.debts, currency]);
 
   const shieldsGrowthData = useMemo(() => {
     // Sum balances now; approximate growth over time by bucketing tx history
-    const months = 6;
+    const months = periodMode === "year" ? 12 : 6;
     const buckets: { month: string; total: number }[] = [];
     const today = new Date();
     for (let i = months - 1; i >= 0; i--) {
@@ -93,7 +92,7 @@ export function Dashboard() {
       if (buckets.length) buckets[buckets.length - 1].total = now;
     }
     return buckets;
-  }, [state.shields, lang]);
+  }, [state.shields, lang, periodMode]);
 
   const premium = isPremiumNow(profile);
   const greeting = profile.name ? `${t.dashboard.greeting}, ${profile.name}.` : `${t.dashboard.greeting}.`;
