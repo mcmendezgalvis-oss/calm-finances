@@ -1,6 +1,28 @@
 export type Lang = "es" | "en";
 
-export const dict = {
+type DictShape = {
+  appName: string;
+  tagline: string;
+  nav: Record<"dashboard" | "budget" | "shields" | "debts" | "settings", string>;
+  budget: {
+    title: string; tabs: { plan: string; real: string; diff: string };
+    unassigned: string; assignNow: string; zeroBased: string; copyPrev: string;
+    addLine: string; addCategoryLine: string; planned: string; real: string;
+    difference: string; empathy: string; lineName: string;
+    groups: Record<"income"|"muros"|"debts"|"generosity"|"lifestyle"|"future", string>;
+    personalizedPlan: string; remove: string;
+  };
+  shields: Record<string, string>;
+  debts: Record<string, string>;
+  dashboard: Record<string, string>;
+  settings: Record<string, string>;
+  paywall: Record<string, string>;
+  pwa: Record<string, string>;
+  common: Record<string, string>;
+  months: string[];
+};
+
+export const dict: Record<Lang, DictShape> = {
   es: {
     appName: "Finanzas en Calma",
     tagline: "Tu paz financiera comienza con una intención clara.",
@@ -273,6 +295,6 @@ export const dict = {
       "July","August","September","October","November","December",
     ],
   },
-} as const;
+};
 
-export type Strings = typeof dict["es"];
+export type Strings = DictShape;
