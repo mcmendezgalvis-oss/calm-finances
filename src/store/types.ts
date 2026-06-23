@@ -8,6 +8,7 @@ export interface BudgetLine {
   real: number;
   linkedShieldId?: string;
   linkedDebtId?: string;
+  permanent?: boolean;
 }
 
 export interface MonthBudget {
@@ -23,7 +24,7 @@ export interface ShieldTx {
   note?: string;
 }
 
-export type ShieldKind = "initial" | "definitive" | "custom";
+export type ShieldKind = "emergency" | "initial" | "definitive" | "custom";
 
 export interface Shield {
   id: string;
@@ -54,6 +55,23 @@ export interface Debt {
   adjustments: DebtAdjustment[];
 }
 
+export type TrophyKind =
+  | "shield_l1"
+  | "shield_l2"
+  | "shield_l3"
+  | "debt_paid"
+  | "under_budget"
+  | "income_growth";
+
+export interface Trophy {
+  id: string;
+  kind: TrophyKind;
+  label: string;
+  earnedAt: string;
+  contextId?: string;
+  monthKey?: string;
+}
+
 export type UserPlan = "free" | "premium";
 
 export interface Profile {
@@ -68,4 +86,5 @@ export interface AppState {
   months: Record<string, MonthBudget>;
   shields: Shield[];
   debts: Debt[];
+  trophies: Trophy[];
 }
