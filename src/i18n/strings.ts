@@ -14,7 +14,7 @@ type DictShape = {
   };
   shields: Record<string, string>;
   debts: Record<string, string>;
-  dashboard: Record<string, string>;
+  dashboard: Record<string, string> & { greetingTemplate: string; greetingFallback: string };
   settings: Record<string, string>;
   paywall: Record<string, string>;
   pwa: Record<string, string>;
@@ -74,6 +74,40 @@ type DictShape = {
     next: string;
     mode: string;
   };
+  closeMonth: {
+    closeBtn: string;
+    reopenBtn: string;
+    closed: string;
+    blockedNegative: string;
+    positiveTitle: string;
+    positiveCopy: string;
+    optDebt: string;
+    optShield: string;
+    optCarry: string;
+    zeroTitle: string;
+    zeroCopy: string;
+    confirmClose: string;
+    reopenTitle: string;
+    reopenCopy: string;
+    reopenContinue: string;
+    reopenRestore: string;
+    nextCarryBlocked: string;
+    incomeChain: string;
+  };
+  deleteGoal: {
+    btn: string;
+    confirmTitle: string;
+    confirmCopy: string;
+    confirmCta: string;
+    blockedTitle: string;
+    blockedCopy: string;
+    archive: string;
+    forceDelete: string;
+    forceConfirm: string;
+    archivedToast: string;
+    deletedToast: string;
+    archivedSection: string;
+  };
   months: string[];
 };
 
@@ -84,7 +118,7 @@ export const dict: Record<Lang, DictShape> = {
     nav: {
       dashboard: "Mi Calma",
       budget: "Presupuesto",
-      shields: "Mis Escudos",
+      shields: "Mis escudos y metas",
       debts: "Adiós a las Cadenas",
       settings: "Ajustes",
     },
@@ -114,14 +148,14 @@ export const dict: Record<Lang, DictShape> = {
       remove: "Quitar",
     },
     shields: {
-      title: "Mis Escudos",
+      title: "Mis escudos y metas",
       subtitle: "Tu refugio en cada estación.",
       initial: "Escudo Inicial",
       initialDesc: "Un primer fondo de paz: $1,000 USD",
       definitive: "Escudo Definitivo",
       definitiveDesc: "De 3 a 6 meses de Los 4 Muros",
       definitiveLocked: "Completa tu Escudo Inicial y paga tus deudas para desbloquearlo.",
-      add: "+ Crear Nuevo Escudo",
+      add: "+ Crear Nueva Meta",
       addFunds: "Agregar fondos",
       withdraw: "Utilizar dinero del Escudo",
       goal: "Meta",
@@ -129,12 +163,12 @@ export const dict: Record<Lang, DictShape> = {
       complete: "Completado",
       target: "Meta",
       historyTitle: "Historial",
-      shieldCreatedToast: "¡Listo! Hemos agregado tu nuevo Escudo al presupuesto de este mes para que puedas asignarle dinero con intención.",
-      newShieldName: "Nombre del escudo",
+      shieldCreatedToast: "¡Listo! Hemos agregado tu nueva meta al presupuesto de este mes para que puedas asignarle dinero con intención.",
+      newShieldName: "Nombre de la meta",
       newShieldGoal: "Meta ($)",
-      create: "Crear escudo",
+      create: "Crear meta",
       cancel: "Cancelar",
-      confirmDelete: "¿Eliminar este escudo? Sus aportes seguirán registrados en tu presupuesto.",
+      confirmDelete: "¿Estás segura de que deseas eliminar esta meta? Esta acción no se puede deshacer.",
     },
     debts: {
       title: "Adiós a las Cadenas",
@@ -157,6 +191,8 @@ export const dict: Record<Lang, DictShape> = {
     dashboard: {
       title: "Mi Dashboard de Paz",
       greeting: "Hola",
+      greetingTemplate: "Hola, {name}. Me encanta que estés por aquí — vamos a ponerle intención a nuestro dinero.",
+      greetingFallback: "Hola, bienvenida. Me encanta que estés por aquí — vamos a ponerle intención a nuestro dinero.",
       destination: "El Destino de mis Ingresos",
       evolution: "Evolución Mensual",
       debtCurve: "El Derrumbe de las Deudas",
@@ -271,6 +307,40 @@ export const dict: Record<Lang, DictShape> = {
       next: "Siguiente",
       mode: "Vista",
     },
+    closeMonth: {
+      closeBtn: "Cerrar mes",
+      reopenBtn: "Reabrir mes",
+      closed: "Mes cerrado · Reabre el toggle para editar.",
+      blockedNegative: "¡Atención! Tu presupuesto está en negativo este mes. Antes de cerrar, ajusta tu Realidad o reduce alguna asignación.",
+      positiveTitle: "¡Bien hecho! Tienes un sobrante este mes.",
+      positiveCopy: "¿Qué quieres hacer con este dinero adicional?",
+      optDebt: "Atacar una deuda",
+      optShield: "Guardar en un escudo o meta",
+      optCarry: "Pasar al próximo mes",
+      zeroTitle: "Cierre limpio",
+      zeroCopy: "Tu plan terminó exactamente en cero. Cerramos el mes con calma.",
+      confirmClose: "Cerrar mes",
+      reopenTitle: "Reabrir este mes",
+      reopenCopy: "¿Quieres continuar desde el último estado o restaurar la versión guardada al cierre?",
+      reopenContinue: "Continuar desde el último estado",
+      reopenRestore: "Restaurar versión guardada",
+      nextCarryBlocked: "No puedes reabrir este mes porque el sobrante ya fue trasladado al mes siguiente y ese mes también está cerrado. Reabre primero el mes siguiente.",
+      incomeChain: "El sobrante en el mes siguiente fue ajustado para no duplicar dinero.",
+    },
+    deleteGoal: {
+      btn: "Eliminar meta",
+      confirmTitle: "Eliminar meta",
+      confirmCopy: "¿Estás segura de que deseas eliminar esta meta? Esta acción no se puede deshacer.",
+      confirmCta: "Sí, eliminar",
+      blockedTitle: "Esta meta tiene historial",
+      blockedCopy: "Esta meta ya recibió aportes en meses cerrados. Para no alterar tu historial, te sugerimos archivarla — sus aportes pasados se conservan intactos.",
+      archive: "Archivar meta",
+      forceDelete: "Eliminar de todos modos",
+      forceConfirm: "Esto borrará los aportes de los meses cerrados. ¿Continuar?",
+      archivedToast: "Meta archivada. Tu historial pasado se conserva intacto.",
+      deletedToast: "Meta eliminada. Las líneas en meses cerrados se preservaron en tu historial.",
+      archivedSection: "Metas archivadas",
+    },
     months: [
       "Enero","Febrero","Marzo","Abril","Mayo","Junio",
       "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
@@ -282,7 +352,7 @@ export const dict: Record<Lang, DictShape> = {
     nav: {
       dashboard: "My Calm",
       budget: "Budget",
-      shields: "My Shields",
+      shields: "My shields & goals",
       debts: "Goodbye to Chains",
       settings: "Settings",
     },
@@ -312,14 +382,14 @@ export const dict: Record<Lang, DictShape> = {
       remove: "Remove",
     },
     shields: {
-      title: "My Shields",
+      title: "My shields & goals",
       subtitle: "Your refuge in every season.",
       initial: "Starter Shield",
       initialDesc: "A first peace fund: $1,000 USD",
       definitive: "Full Shield",
       definitiveDesc: "3 to 6 months of your 4 Walls",
       definitiveLocked: "Complete your Starter Shield and pay off your debts to unlock it.",
-      add: "+ Create New Shield",
+      add: "+ Create New Goal",
       addFunds: "Add funds",
       withdraw: "Use shield funds",
       goal: "Goal",
@@ -327,12 +397,12 @@ export const dict: Record<Lang, DictShape> = {
       complete: "Complete",
       target: "Goal",
       historyTitle: "History",
-      shieldCreatedToast: "Done! We've added your new Shield to this month's budget so you can fund it with intention.",
-      newShieldName: "Shield name",
+      shieldCreatedToast: "Done! We've added your new goal to this month's budget so you can fund it with intention.",
+      newShieldName: "Goal name",
       newShieldGoal: "Goal ($)",
-      create: "Create shield",
+      create: "Create goal",
       cancel: "Cancel",
-      confirmDelete: "Delete this shield? Its contributions remain in your budget history.",
+      confirmDelete: "Are you sure you want to delete this goal? This cannot be undone.",
     },
     debts: {
       title: "Goodbye to Chains",
@@ -355,6 +425,8 @@ export const dict: Record<Lang, DictShape> = {
     dashboard: {
       title: "My Peace Dashboard",
       greeting: "Hello",
+      greetingTemplate: "Hello, {name}. So glad you're here — let's give intention to our money.",
+      greetingFallback: "Hello, welcome. So glad you're here — let's give intention to our money.",
       destination: "Where my Income Goes",
       evolution: "Monthly Evolution",
       debtCurve: "Debt Collapse",
@@ -468,6 +540,40 @@ export const dict: Record<Lang, DictShape> = {
       prev: "Previous",
       next: "Next",
       mode: "View",
+    },
+    closeMonth: {
+      closeBtn: "Close month",
+      reopenBtn: "Reopen month",
+      closed: "Month closed · Toggle to reopen and edit.",
+      blockedNegative: "Heads up — your budget is in the red this month. Adjust your Reality or reduce an allocation before closing.",
+      positiveTitle: "Nicely done! You have a surplus this month.",
+      positiveCopy: "What would you like to do with this extra money?",
+      optDebt: "Attack a debt",
+      optShield: "Save into a shield or goal",
+      optCarry: "Carry over to next month",
+      zeroTitle: "Clean close",
+      zeroCopy: "Your plan landed exactly at zero. Closing with calm.",
+      confirmClose: "Close month",
+      reopenTitle: "Reopen this month",
+      reopenCopy: "Continue from the last state or restore the version saved at close?",
+      reopenContinue: "Continue from last state",
+      reopenRestore: "Restore saved version",
+      nextCarryBlocked: "You can't reopen this month because the surplus was already carried over and that month is also closed. Reopen the next month first.",
+      incomeChain: "The surplus line in the next month was adjusted so money isn't duplicated.",
+    },
+    deleteGoal: {
+      btn: "Delete goal",
+      confirmTitle: "Delete goal",
+      confirmCopy: "Are you sure you want to delete this goal? This cannot be undone.",
+      confirmCta: "Yes, delete",
+      blockedTitle: "This goal has history",
+      blockedCopy: "This goal already received contributions in closed months. To preserve your history, we suggest archiving it — past contributions stay intact.",
+      archive: "Archive goal",
+      forceDelete: "Delete anyway",
+      forceConfirm: "This will remove contributions from closed months. Continue?",
+      archivedToast: "Goal archived. Your past history is preserved.",
+      deletedToast: "Goal deleted. Lines in closed months were preserved in your history.",
+      archivedSection: "Archived goals",
     },
     months: [
       "January","February","March","April","May","June",

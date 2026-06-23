@@ -8,6 +8,7 @@ import { fmt, EMERGENCY_FUND_ID } from "@/lib/finance";
 import { toast } from "sonner";
 import { InlineDatePicker } from "@/components/InlineDatePicker";
 import { EmergencyFundCard } from "@/components/EmergencyFundCard";
+import { DeleteGoalDialog } from "@/components/DeleteGoalDialog";
 
 function Ring({ pct, size = 64 }: { pct: number; size?: number }) {
   const r = (size - 8) / 2;
@@ -29,13 +30,13 @@ function ShieldCard({ shieldId, locked = false }: { shieldId?: string; locked?: 
   const { t } = useI18n();
   const currency = useApp((s) => s.profile.currency);
   const shields = useApp((s) => s.shields);
-  const removeShield = useApp((s) => s.removeShield);
   const shieldDeposit = useApp((s) => s.shieldDeposit);
   const shieldWithdraw = useApp((s) => s.shieldWithdraw);
   const [showHistory, setShowHistory] = useState(false);
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState<Date>(new Date());
   const [editGoal, setEditGoal] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   if (locked) return null;
 
@@ -80,12 +81,11 @@ function ShieldCard({ shieldId, locked = false }: { shieldId?: string; locked?: 
             </span>
           )}
         </div>
-        {shield.kind === "custom" && (
+        {shield.id !== EMERGENCY_FUND_ID && (
           <button
-            onClick={() => {
-              if (confirm(t.shields.confirmDelete)) removeShield(shield.id);
-            }}
+            onClick={() => setDeleteOpen(true)}
             className="text-sage-300 hover:text-clay p-1"
+            aria-label={t.deleteGoal.btn}
           >
             <Trash2 className="size-3.5" />
           </button>
@@ -152,6 +152,7 @@ function ShieldCard({ shieldId, locked = false }: { shieldId?: string; locked?: 
           )}
         </>
       )}
+      {deleteOpen && <DeleteGoalDialog shieldId={shield.id} onClose={() => setDeleteOpen(false)} />}
     </div>
   );
 }
@@ -161,6 +162,7 @@ function NewShieldDialog({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [goal, setGoal] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const addShield = useApp((s) => s.addShield);
 
   return (
@@ -176,11 +178,17 @@ function NewShieldDialog({ onCreated }: { onCreated: () => void }) {
         <div className="fixed inset-0 z-50 grid place-items-center bg-sage-900/40 p-4" onClick={() => setOpen(false)}>
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-serif text-2xl text-sage-900 mb-4">{t.shields.add.replace("+ ", "")}</h3>
-            <label className="block text-xs uppercase tracking-widest text-sage-500 mb-1">{t.shields.newShieldName}</label>
+            <label className="block text-xs uppercase tracking-widest text-sage-500 mb-1">
+              {t.shields.newShieldName} *
+            </label>
             <input
-              value={name} onChange={(e) => setName(e.target.value)} autoFocus
-              className="w-full bg-sage-50 rounded-xl px-3 py-2 mb-3 outline-none focus:ring-2 focus:ring-sage-200"
+              required
+              value={name} onChange={(e) => { setName(e.target.value); setError(null); }} autoFocus
+              placeholder='"Viaje a Europa", "Mantenimiento Casa", "Fondo Universidad"'
+              className="w-full bg-sage-50 rounded-xl px-3 py-2 mb-1 outline-none focus:ring-2 focus:ring-sage-200 placeholder:text-sage-300 placeholder:text-xs"
             />
+            {error && <p className="text-xs text-clay mb-2">{error}</p>}
+            <div className="h-2" />
             <label className="block text-xs uppercase tracking-widest text-sage-500 mb-1">{t.shields.newShieldGoal}</label>
             <input
               inputMode="decimal" value={goal} onChange={(e) => setGoal(e.target.value)}
@@ -190,11 +198,11 @@ function NewShieldDialog({ onCreated }: { onCreated: () => void }) {
               <button onClick={() => setOpen(false)} className="text-sm text-sage-500 px-4 py-2">{t.shields.cancel}</button>
               <button
                 onClick={() => {
-                  if (!name.trim()) return;
-                  addShield(name.trim(), parseFloat(goal) || 0);
-                  // also auto-add to current month budget; addShield triggers sync next ensureMonth
+                  if (!name.trim()) { setError("Nombre obligatorio."); return; }
+                  const id = addShield(name.trim(), parseFloat(goal) || 0);
+                  if (!id) { setError("Ya tienes una meta con ese nombre."); return; }
                   setOpen(false);
-                  setName(""); setGoal("");
+                  setName(""); setGoal(""); setError(null);
                   toast.success(t.shields.shieldCreatedToast);
                   onCreated();
                 }}
@@ -222,7 +230,8 @@ export function ShieldsView() {
   }, [ensureEmergencyFund, ensureMonth]);
 
   // Everything that's not the unified Emergency Fund is treated as a "custom goal".
-  const customs = shields.filter((s) => s.id !== EMERGENCY_FUND_ID);
+  const customs = shields.filter((s) => s.id !== EMERGENCY_FUND_ID && !s.archived);
+  const archived = shields.filter((s) => s.id !== EMERGENCY_FUND_ID && s.archived);
 
   return (
     <AppShell>
@@ -246,6 +255,22 @@ export function ShieldsView() {
             <NewShieldDialog onCreated={() => ensureMonth(currentMonthKey())} />
           </div>
         </section>
+
+        {archived.length > 0 && (
+          <section className="mt-10">
+            <h2 className="font-serif text-xl text-sage-500 mb-3">{t.deleteGoal.archivedSection}</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 opacity-70">
+              {archived.map((s) => (
+                <div key={s.id} className="bg-sage-100/40 border border-sage-200 rounded-2xl px-4 py-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-sage-700">{s.name}</p>
+                    <p className="text-xs text-sage-500">{fmt(s.balance, "USD")}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </PremiumGate>
     </AppShell>
   );

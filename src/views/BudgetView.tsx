@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Copy } from "lucide-react";
+import { Copy, Lock, Unlock } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { MonthSelector } from "@/components/MonthSelector";
 import { BudgetTable, type BudgetTab } from "@/components/BudgetTable";
 import { useApp, currentMonthKey, monthKeyOf } from "@/store/useApp";
 import { useI18n } from "@/i18n/I18nProvider";
-import { unassigned, fmt } from "@/lib/finance";
+import { unassigned, fmt, groupTotals } from "@/lib/finance";
+import { CloseMonthDialog } from "@/components/CloseMonthDialog";
+import { ReopenMonthDialog } from "@/components/ReopenMonthDialog";
 
 export function BudgetView() {
   const { t } = useI18n();
@@ -23,6 +25,13 @@ export function BudgetView() {
   const month = months[monthKey] ?? { monthKey, lines: [] };
   const u = unassigned(month);
   const balanced = Math.abs(u) < 0.005;
+  const closed = Boolean(month.closed);
+  const [closeOpen, setCloseOpen] = useState(false);
+  const [reopenOpen, setReopenOpen] = useState(false);
+
+  // Real balance (income real - expenses real) is what we offer to allocate on close.
+  const totals = groupTotals(month.lines);
+  const realBalance = totals.income.real - (totals.muros.real + totals.debts.real + totals.generosity.real + totals.lifestyle.real + totals.future.real);
 
   const prevKey = useMemo(() => {
     const [y, m] = monthKey.split("-").map(Number);
@@ -69,7 +78,19 @@ export function BudgetView() {
               <Copy className="size-3.5" /> {t.budget.copyPrev}
             </button>
           )}
+          <button
+            onClick={() => (closed ? setReopenOpen(true) : setCloseOpen(true))}
+            className={`inline-flex items-center gap-2 text-xs px-4 py-2 rounded-full transition-colors ${closed ? "bg-blush-100 text-clay hover:bg-blush-200" : "bg-wine text-white hover:opacity-90"}`}
+          >
+            {closed ? <Unlock className="size-3.5" /> : <Lock className="size-3.5" />}
+            {closed ? t.closeMonth.reopenBtn : t.closeMonth.closeBtn}
+          </button>
         </div>
+        {closed && (
+          <div className="mt-3 text-xs text-sage-600 italic bg-sage-100 border border-sage-200 px-4 py-2 rounded-full inline-block">
+            🔒 {t.closeMonth.closed}
+          </div>
+        )}
       </header>
 
       <div className="bg-white border border-sage-100 rounded-[32px] overflow-hidden shadow-sm">
@@ -90,7 +111,7 @@ export function BudgetView() {
         </div>
 
         <div className="p-6 md:p-8">
-          <BudgetTable month={month} tab={tab} />
+          <BudgetTable month={month} tab={tab} disabled={closed} />
 
           {tab === "diff" && (
             <p className="mt-8 pt-6 border-t border-sage-100 text-xs text-sage-500 italic leading-relaxed text-center max-w-xl mx-auto">
@@ -99,6 +120,22 @@ export function BudgetView() {
           )}
         </div>
       </div>
+
+      {closeOpen && (
+        <CloseMonthDialog
+          monthKey={monthKey}
+          balance={realBalance}
+          onClose={() => setCloseOpen(false)}
+          onClosed={() => setCloseOpen(false)}
+        />
+      )}
+      {reopenOpen && (
+        <ReopenMonthDialog
+          monthKey={monthKey}
+          onClose={() => setReopenOpen(false)}
+          onReopened={() => setReopenOpen(false)}
+        />
+      )}
     </AppShell>
   );
 }

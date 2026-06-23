@@ -80,7 +80,8 @@ function NewDebtDialog({ onClose }: { onClose: () => void }) {
           <button
             onClick={() => {
               if (!name.trim()) return;
-              addDebt({ name: name.trim(), initialBalance: parseFloat(bal) || 0, minimumPayment: parseFloat(min) || 0 });
+              const id = addDebt({ name: name.trim(), initialBalance: parseFloat(bal) || 0, minimumPayment: parseFloat(min) || 0 });
+              if (!id) { toast.error("Ya tienes una deuda con ese nombre."); return; }
               onClose();
             }}
             className="bg-sage-900 text-sage-50 text-sm px-5 py-2 rounded-full font-medium"

@@ -2,7 +2,7 @@ import { useMemo, useRef } from "react";
 import { Trash2, Sparkles, Home, Link2Off, HandHeart, Flower2, Sprout } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { useApp } from "@/store/useApp";
+import { useApp, isPremiumNow } from "@/store/useApp";
 import { useI18n } from "@/i18n/I18nProvider";
 import { GROUP_ORDER, groupTotals, fmt, lineDiff } from "@/lib/finance";
 import { NumberCell } from "./NumberCell";
@@ -22,15 +22,18 @@ const GROUP_ICONS: Record<GroupKey, React.ComponentType<{ className?: string }>>
 export type BudgetTab = "plan" | "real" | "diff";
 
 export function BudgetTable({
-  month, tab,
+  month, tab, disabled = false,
 }: {
   month: MonthBudget;
   tab: BudgetTab;
+  disabled?: boolean;
 }) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const currency = useApp((s) => s.profile.currency);
   const debts = useApp((s) => s.debts);
+  const profile = useApp((s) => s.profile);
+  const isPremium = isPremiumNow(profile);
   const updateLine = useApp((s) => s.updateLine);
   const removeLine = useApp((s) => s.removeLine);
   const addLine = useApp((s) => s.addLine);
@@ -86,6 +89,7 @@ export function BudgetTable({
                     <input
                       value={l.name}
                       onChange={(e) => updateLine(month.monthKey, l.id, { name: e.target.value })}
+                      disabled={disabled || Boolean(l.linkedShieldId || l.linkedDebtId)}
                       placeholder={t.budget.lineName}
                       className="bg-transparent text-sm text-sage-900 outline-none focus:bg-white focus:ring-1 focus:ring-sage-200 rounded px-2 py-1.5"
                     />
@@ -97,6 +101,7 @@ export function BudgetTable({
                           value={l.planned}
                           onChange={(n) => updateLine(month.monthKey, l.id, { planned: n })}
                           ariaLabel={t.budget.planned}
+                          disabled={disabled}
                         />
                         <div className="hidden sm:block" />
                       </>
@@ -113,6 +118,7 @@ export function BudgetTable({
                           tone="realidad"
                           onChange={(n) => updateLine(month.monthKey, l.id, { real: n })}
                           ariaLabel={t.budget.real}
+                          disabled={disabled}
                         />
                       </>
                     )}
@@ -136,7 +142,7 @@ export function BudgetTable({
                     )}
 
                     {tab !== "diff" ? (
-                        l.permanent ? (
+                        l.permanent || disabled ? (
                           <div />
                         ) : (
                           <button
@@ -162,8 +168,17 @@ export function BudgetTable({
 
               {tab !== "diff" && (
                 g === "debts" ? (
+                  disabled ? null :
                   <button
                     onClick={() => {
+                      if (!isPremium) {
+                        const id = addLine(month.monthKey, g, "");
+                        requestAnimationFrame(() => {
+                          const el = focusRefs.current[id];
+                          if (el) { el.focus(); el.select(); }
+                        });
+                        return;
+                      }
                       toast(t.toasts.goConfigureDebt, {
                         icon: <Sparkles className="size-4 text-wine" />,
                         action: { label: t.toasts.goButtonDebts, onClick: () => navigate({ to: "/deudas" }) },
@@ -174,8 +189,17 @@ export function BudgetTable({
                     {t.budget.addLine}
                   </button>
                 ) : g === "future" ? (
+                  disabled ? null :
                   <button
                     onClick={() => {
+                      if (!isPremium) {
+                        const id = addLine(month.monthKey, g, "");
+                        requestAnimationFrame(() => {
+                          const el = focusRefs.current[id];
+                          if (el) { el.focus(); el.select(); }
+                        });
+                        return;
+                      }
                       toast(t.toasts.goConfigureShield, {
                         icon: <Sparkles className="size-4 text-wine" />,
                         action: { label: t.toasts.goButtonShields, onClick: () => navigate({ to: "/escudos" }) },
@@ -186,6 +210,7 @@ export function BudgetTable({
                     {t.budget.addLine}
                   </button>
                 ) : (
+                  disabled ? null :
                   <CategoryPicker
                     group={g}
                     label={t.budget.addLine.replace("+ ", "")}
