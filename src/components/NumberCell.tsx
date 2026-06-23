@@ -7,10 +7,11 @@ type NumberCellProps = {
   className?: string;
   tone?: "default" | "realidad";
   ariaLabel?: string;
+  disabled?: boolean;
 };
 
 export const NumberCell = forwardRef<HTMLInputElement, NumberCellProps>(function NumberCell(
-  { value, onChange, className = "", tone = "default", ariaLabel },
+  { value, onChange, className = "", tone = "default", ariaLabel, disabled = false },
   ref,
 ) {
   const [draft, setDraft] = useState(value === 0 ? "" : value.toString());
@@ -24,6 +25,7 @@ export const NumberCell = forwardRef<HTMLInputElement, NumberCellProps>(function
     <input
       ref={ref}
       inputMode="decimal"
+      disabled={disabled}
       value={focused ? draft : value === 0 ? "" : value.toFixed(2)}
       aria-label={ariaLabel}
       onFocus={(e) => {
