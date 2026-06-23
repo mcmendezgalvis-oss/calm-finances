@@ -1,12 +1,13 @@
-import { useState } from "react";
-import { Plus, Lock, ArrowDown, ArrowUp, Trash2, Shield as ShieldIcon, ChevronDown } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Plus, ArrowDown, ArrowUp, Trash2, Shield as ShieldIcon, ChevronDown } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PremiumGate } from "@/components/PremiumGate";
 import { useApp, currentMonthKey } from "@/store/useApp";
 import { useI18n } from "@/i18n/I18nProvider";
-import { fmt, muros4Total } from "@/lib/finance";
+import { fmt, EMERGENCY_FUND_ID } from "@/lib/finance";
 import { toast } from "sonner";
 import { InlineDatePicker } from "@/components/InlineDatePicker";
+import { EmergencyFundCard } from "@/components/EmergencyFundCard";
 
 function Ring({ pct, size = 64 }: { pct: number; size?: number }) {
   const r = (size - 8) / 2;
@@ -36,22 +37,7 @@ function ShieldCard({ shieldId, locked = false }: { shieldId?: string; locked?: 
   const [date, setDate] = useState<Date>(new Date());
   const [editGoal, setEditGoal] = useState(false);
 
-  if (locked) {
-    return (
-      <div className="bg-white/60 border-2 border-dashed border-sage-200 rounded-3xl p-6 opacity-80">
-        <div className="flex items-start justify-between mb-3">
-          <div>
-            <p className="font-serif text-xl text-sage-900">{t.shields.definitive}</p>
-            <p className="text-xs text-sage-500 mt-1">{t.shields.definitiveDesc}</p>
-          </div>
-          <div className="size-10 rounded-2xl bg-sage-100 grid place-items-center text-sage-600">
-            <Lock className="size-4" />
-          </div>
-        </div>
-        <p className="text-xs italic text-clay leading-relaxed">{t.shields.definitiveLocked}</p>
-      </div>
-    );
-  }
+  if (locked) return null;
 
   const shield = shields.find((s) => s.id === shieldId)!;
   const pct = shield.goal > 0 ? shield.balance / shield.goal : 0;
@@ -227,57 +213,39 @@ function NewShieldDialog({ onCreated }: { onCreated: () => void }) {
 export function ShieldsView() {
   const { t } = useI18n();
   const shields = useApp((s) => s.shields);
-  const debts = useApp((s) => s.debts);
-  const months = useApp((s) => s.months);
   const ensureMonth = useApp((s) => s.ensureMonth);
-  const addShield = useApp((s) => s.addShield);
-  const currency = useApp((s) => s.profile.currency);
+  const ensureEmergencyFund = useApp((s) => s.ensureEmergencyFund);
 
-  const initial = shields.find((s) => s.kind === "initial");
-  const definitive = shields.find((s) => s.kind === "definitive");
-  const customs = shields.filter((s) => s.kind === "custom");
+  useEffect(() => {
+    ensureEmergencyFund();
+    ensureMonth(currentMonthKey());
+  }, [ensureEmergencyFund, ensureMonth]);
 
-  // Make sure starter shield exists
-  if (!initial) {
-    setTimeout(() => addShield(t.shields.initial, 1000, "initial"), 0);
-  }
-
-  const month = months[currentMonthKey()] ?? { monthKey: currentMonthKey(), lines: [] };
-  const muros = muros4Total(month);
-  const allDebtsPaid = debts.length === 0 ? false : debts.every((d) => d.paid);
-  const initialDone = !!initial && initial.balance >= initial.goal;
-  const definitiveUnlocked = initialDone && allDebtsPaid;
-
-  if (definitiveUnlocked && !definitive) {
-    setTimeout(() => addShield(t.shields.definitive, muros * 6, "definitive"), 0);
-  }
+  // Everything that's not the unified Emergency Fund is treated as a "custom goal".
+  const customs = shields.filter((s) => s.id !== EMERGENCY_FUND_ID);
 
   return (
     <AppShell>
       <header className="mb-8">
-        <h1 className="font-serif text-4xl text-sage-900">{t.shields.title}</h1>
+        <h1 className="font-serif text-4xl text-wine flex items-center gap-3">
+          <ShieldIcon className="size-7" /> {t.shields.title}
+        </h1>
         <p className="text-sm text-sage-600 italic mt-1">{t.shields.subtitle}</p>
       </header>
 
       <PremiumGate allowReadOnly>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {initial && <ShieldCard shieldId={initial.id} />}
-          {definitiveUnlocked && definitive ? (
-            <ShieldCard shieldId={definitive.id} />
-          ) : (
-            <ShieldCard locked />
-          )}
-          {customs.map((s) => (
-            <ShieldCard key={s.id} shieldId={s.id} />
-          ))}
-          <NewShieldDialog onCreated={() => ensureMonth(currentMonthKey())} />
-        </div>
+        <EmergencyFundCard />
 
-        {definitiveUnlocked && definitive && (
-          <p className="mt-6 text-xs text-sage-500 italic">
-            Tu Escudo Definitivo está calibrado a 6 meses de Los 4 Muros ({fmt(muros, currency)}/mes).
-          </p>
-        )}
+        <section className="mt-10">
+          <h2 className="font-serif text-2xl text-wine mb-1">{t.emergency.customGoals}</h2>
+          <p className="text-xs text-sage-500 italic mb-4">{t.shields.subtitle}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {customs.map((s) => (
+              <ShieldCard key={s.id} shieldId={s.id} />
+            ))}
+            <NewShieldDialog onCreated={() => ensureMonth(currentMonthKey())} />
+          </div>
+        </section>
       </PremiumGate>
     </AppShell>
   );

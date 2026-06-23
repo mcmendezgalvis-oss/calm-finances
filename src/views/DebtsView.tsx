@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, Sparkles, Link2Off, ChevronDown } from "lucide-react";
+import { Plus, Pencil, Trash2, Sparkles, Link2Off, ChevronDown, Sprout } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PremiumGate } from "@/components/PremiumGate";
 import { useApp } from "@/store/useApp";
@@ -136,6 +136,14 @@ export function DebtsView() {
       </header>
 
       <PremiumGate allowReadOnly>
+        {debts.filter((d) => !d.paid).length > 1 && (
+          <div className="mb-5 bg-wine-50 border border-wine-100 rounded-3xl p-4 flex items-start gap-3">
+            <div className="size-8 rounded-2xl bg-white grid place-items-center text-wine shrink-0">
+              <Sprout className="size-4" />
+            </div>
+            <p className="text-sm text-wine leading-relaxed">{t.snowball.coach}</p>
+          </div>
+        )}
         {debts.length > 0 && (
           <div className="mb-6 grid grid-cols-2 gap-3">
             <div className="bg-white border border-sage-100 rounded-2xl p-4">
@@ -200,11 +208,15 @@ export function DebtsView() {
                     </div>
                   </div>
                   <div className="text-right">
+                    <p className="text-[10px] uppercase tracking-widest text-sage-400">{t.snowball.currentBalance}</p>
                     <input
                       inputMode="decimal" defaultValue={d.currentBalance}
                       onBlur={(e) => { const n = parseFloat(e.target.value); if (!isNaN(n)) updateDebt(d.id, { currentBalance: n, paid: n === 0 }); }}
                       className="font-serif text-2xl text-sage-900 text-right w-32 bg-transparent outline-none focus:bg-white rounded px-1 tabular-nums"
                     />
+                    <p className="text-[10px] text-sage-400 mt-0.5 italic">
+                      {t.snowball.asOf} {new Date(d.adjustments[d.adjustments.length - 1]?.date ?? d.createdAt).toLocaleDateString()}
+                    </p>
                     <div className="flex gap-1 justify-end mt-1">
                       {!d.paid && (
                         <button

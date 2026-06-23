@@ -1,6 +1,6 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { ReactNode, useEffect, useState } from "react";
-import { LayoutDashboard, Wallet, Shield, Link2Off, Settings, Menu, X, FileText } from "lucide-react";
+import { LayoutDashboard, Wallet, Shield, Link2Off, Settings, Menu, X, FileText, Trophy } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useApp, daysLeft, isPremiumNow } from "@/store/useApp";
 import { PWABanner } from "./PWABanner";
@@ -19,6 +19,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     { to: "/escudos", label: t.nav.shields, icon: Shield },
     { to: "/deudas", label: t.nav.debts, icon: Link2Off },
     { to: "/reportes", label: t.reports.title, icon: FileText },
+    { to: "/logros", label: t.trophies.nav, icon: Trophy },
     { to: "/ajustes", label: t.nav.settings, icon: Settings },
   ] as const;
 
