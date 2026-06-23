@@ -31,7 +31,6 @@ function ShieldCard({ shieldId, locked = false }: { shieldId?: string; locked?: 
   const removeShield = useApp((s) => s.removeShield);
   const shieldDeposit = useApp((s) => s.shieldDeposit);
   const shieldWithdraw = useApp((s) => s.shieldWithdraw);
-  const updateShield = useApp((s) => (s as unknown as { shields: typeof s.shields }));
   const [showHistory, setShowHistory] = useState(false);
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState<Date>(new Date());
