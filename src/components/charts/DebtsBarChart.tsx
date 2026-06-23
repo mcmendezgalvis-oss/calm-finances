@@ -37,6 +37,17 @@ export function DebtsBarChart({ year }: { year: number }) {
     });
   }, [debts, year, lang]);
 
+  // Stable color per debt id, then render largest current balance first (base of stack).
+  const colorById = useMemo(() => {
+    const map = new Map<string, string>();
+    debts.forEach((d, i) => map.set(d.id, PALETTE[i % PALETTE.length]));
+    return map;
+  }, [debts]);
+  const renderOrder = useMemo(
+    () => [...debts].sort((a, b) => b.currentBalance - a.currentBalance),
+    [debts],
+  );
+
   if (debts.length === 0) {
     return (
       <section className="bg-white border border-sage-100 rounded-3xl p-6">
@@ -63,8 +74,8 @@ export function DebtsBarChart({ year }: { year: number }) {
             <YAxis tick={{ fontSize: 11, fill: "#6b8e6b" }} width={56} />
             <Tooltip formatter={(v: number) => fmt(v, currency)} />
             <Legend wrapperStyle={{ fontSize: 11 }} />
-            {debts.map((d, i) => (
-              <Bar key={d.id} dataKey={d.id} name={d.name} stackId="d" fill={PALETTE[i % PALETTE.length]} radius={[4, 4, 0, 0]} />
+            {renderOrder.map((d) => (
+              <Bar key={d.id} dataKey={d.id} name={d.name} stackId="d" fill={colorById.get(d.id)} radius={[4, 4, 0, 0]} />
             ))}
           </BarChart>
         </ResponsiveContainer>

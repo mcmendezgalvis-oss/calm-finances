@@ -35,11 +35,14 @@ export function PeriodSelector({
   const [openTo, setOpenTo] = useState(false);
 
   const today = new Date();
-  const months = Array.from({ length: 12 }, (_, i) => {
-    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+  // Allow selecting future months (proyecciones) as well as recent history.
+  // Range: 24 months back through 24 months forward.
+  const months = Array.from({ length: 49 }, (_, i) => {
+    const offset = i - 24; // -24..+24, negative = past, positive = future
+    const d = new Date(today.getFullYear(), today.getMonth() + offset, 1);
     return { key: toMonthKey(d), label: format(d, "MMM yyyy", { locale }) };
-  });
-  const years = Array.from({ length: 3 }, (_, i) => today.getFullYear() - i);
+  }).reverse(); // newest/future first
+  const years = Array.from({ length: 7 }, (_, i) => today.getFullYear() + 2 - i); // +2 .. -4
 
   const setMode = (mode: PeriodMode) => {
     if (mode === "month") onChange({ mode, monthKey: value.monthKey ?? months[0].key });

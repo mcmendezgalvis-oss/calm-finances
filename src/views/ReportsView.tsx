@@ -1,11 +1,12 @@
-import { useState } from "react";
-import { FileDown, FileText } from "lucide-react";
+import { useMemo, useState } from "react";
+import { FileDown, FileText, FileSpreadsheet } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PremiumGate } from "@/components/PremiumGate";
 import { PeriodSelector, type PeriodValue } from "@/components/PeriodSelector";
-import { useApp } from "@/store/useApp";
+import { useApp, currentMonthKey } from "@/store/useApp";
 import { useI18n } from "@/i18n/I18nProvider";
 import { groupTotals, fmt } from "@/lib/finance";
+import { downloadCSV } from "@/lib/csv";
 import {
   generateBudgetVsRealReport,
   generateDebtDetailReport,
@@ -51,6 +52,64 @@ export function ReportsView() {
   const { from, to } = periodToRange(period);
   const currency = state.profile.currency;
 
+  // Helpers for the unified movement feeds (debt and shield).
+  type Mv = { date: string; type: string; amount: number; note: string; sortTs: number; signed: number };
+
+  const buildDebtMovements = useMemo(() => (debtId: string): Mv[] => {
+    const debt = state.debts.find((d) => d.id === debtId);
+    if (!debt) return [];
+    const out: Mv[] = [];
+    for (const a of debt.adjustments) {
+      out.push({
+        date: new Date(a.date).toLocaleDateString(),
+        type: a.delta < 0 ? "Pago / abono" : "Ajuste banco",
+        amount: a.delta,
+        note: a.note ?? "",
+        sortTs: new Date(a.date).getTime(),
+        signed: a.delta,
+      });
+    }
+    for (const [k, m] of Object.entries(state.months)) {
+      for (const l of m.lines) {
+        if (l.linkedDebtId !== debtId) continue;
+        const real = l.real || 0;
+        if (real <= 0) continue;
+        const [y, mm] = k.split("-").map(Number);
+        const d = new Date(y, mm, 0);
+        out.push({
+          date: d.toLocaleDateString(),
+          type: "Abono desde presupuesto",
+          amount: -real,
+          note: `Mes ${k}`,
+          sortTs: d.getTime(),
+          signed: -real,
+        });
+      }
+    }
+    return out.sort((a, b) => a.sortTs - b.sortTs);
+  }, [state.debts, state.months]);
+
+  const buildShieldMovements = useMemo(() => (shieldId: string): Mv[] => {
+    const sh = state.shields.find((s) => s.id === shieldId);
+    if (!sh) return [];
+    const out: Mv[] = [];
+    for (const h of sh.history) {
+      const signed = h.type === "deposit" ? h.amount : -h.amount;
+      out.push({
+        date: new Date(h.date).toLocaleDateString(),
+        type: h.type === "deposit" ? "Aporte" : "Retiro",
+        amount: signed,
+        note: h.note ?? "",
+        sortTs: new Date(h.date).getTime(),
+        signed,
+      });
+    }
+    // Linked budget contributions in any month (already create ShieldTx entries via updateLine,
+    // so they should already exist in history). Avoid double-counting by skipping budget-linked
+    // lines unless not yet reflected in history (best-effort: do not add to prevent duplicates).
+    return out.sort((a, b) => a.sortTs - b.sortTs);
+  }, [state.shields]);
+
   // Build preview table per report type, including TOTAL row.
   const preview = (() => {
     if (kind === "budget") {
@@ -63,13 +122,21 @@ export function ReportsView() {
       }
       const rows: { label: string; planned: number; real: number }[] = [];
       let tp = 0, tr = 0;
+      const currKey = currentMonthKey();
       for (const k of keys) {
         const m = state.months[k];
-        if (!m) continue;
+        const isFuture = k > currKey;
+        if (!m) {
+          // Future projection with no plan yet — still show a row with zeros.
+          if (isFuture) rows.push({ label: `${k} (proyección)`, planned: 0, real: 0 });
+          continue;
+        }
         const g = groupTotals(m.lines);
         const planned = (["muros","debts","generosity","lifestyle","future"] as const).reduce((s, k2) => s + g[k2].planned, 0);
-        const real = (["muros","debts","generosity","lifestyle","future"] as const).reduce((s, k2) => s + g[k2].real, 0);
-        rows.push({ label: k, planned, real });
+        const real = isFuture
+          ? 0
+          : (["muros","debts","generosity","lifestyle","future"] as const).reduce((s, k2) => s + g[k2].real, 0);
+        rows.push({ label: isFuture ? `${k} (proyección)` : k, planned, real });
         tp += planned; tr += real;
       }
       return { cols: ["Mes", "Plan", "Real"], rows: rows.map((r) => [r.label, fmt(r.planned, currency), fmt(r.real, currency)]), totals: ["TOTAL", fmt(tp, currency), fmt(tr, currency)] };
@@ -78,28 +145,36 @@ export function ReportsView() {
       const debt = state.debts.find((d) => d.id === debtId);
       if (!debt) return null;
       const tFrom = from.getTime(); const tTo = to.getTime() + 86400_000;
-      const adj = debt.adjustments.filter((a) => { const ts = new Date(a.date).getTime(); return ts >= tFrom && ts <= tTo; });
-      const total = adj.reduce((s, a) => s + a.delta, 0);
+      const mvs = buildDebtMovements(debtId).filter((m) => m.sortTs >= tFrom && m.sortTs <= tTo);
+      const total = mvs.reduce((s, m) => s + m.signed, 0);
       return {
-        cols: ["Fecha", "Tipo", "Monto"],
-        rows: adj.map((a) => [new Date(a.date).toLocaleDateString(), a.delta < 0 ? "Pago" : "Ajuste", (a.delta >= 0 ? "+" : "") + fmt(a.delta, currency)]),
-        totals: ["TOTAL", "", (total >= 0 ? "+" : "") + fmt(total, currency)],
+        cols: ["Fecha", "Tipo", "Monto", "Nota"],
+        rows: mvs.map((m) => [m.date, m.type, (m.signed >= 0 ? "+" : "") + fmt(m.signed, currency), m.note]),
+        totals: ["TOTAL", "", (total >= 0 ? "+" : "") + fmt(total, currency), ""],
       };
     }
     if (kind === "shield" && shieldId) {
       const sh = state.shields.find((s) => s.id === shieldId);
       if (!sh) return null;
       const tFrom = from.getTime(); const tTo = to.getTime() + 86400_000;
-      const hist = sh.history.filter((h) => { const ts = new Date(h.date).getTime(); return ts >= tFrom && ts <= tTo; });
-      const total = hist.reduce((s, h) => s + (h.type === "deposit" ? h.amount : -h.amount), 0);
+      const mvs = buildShieldMovements(shieldId).filter((m) => m.sortTs >= tFrom && m.sortTs <= tTo);
+      const total = mvs.reduce((s, m) => s + m.signed, 0);
       return {
-        cols: ["Fecha", "Tipo", "Monto"],
-        rows: hist.map((h) => [new Date(h.date).toLocaleDateString(), h.type === "deposit" ? "Aporte" : "Retiro", (h.type === "deposit" ? "+" : "−") + fmt(h.amount, currency)]),
-        totals: ["TOTAL", "", (total >= 0 ? "+" : "") + fmt(total, currency)],
+        cols: ["Fecha", "Tipo", "Monto", "Nota"],
+        rows: mvs.map((m) => [m.date, m.type, (m.signed >= 0 ? "+" : "") + fmt(m.signed, currency), m.note]),
+        totals: ["TOTAL", "", (total >= 0 ? "+" : "") + fmt(total, currency), ""],
       };
     }
     return null;
   })();
+
+  const onDownloadCSV = () => {
+    if (!preview) return;
+    const rows: (string | number)[][] = [preview.cols, ...preview.rows, preview.totals];
+    const tag = kind === "budget" ? "presupuesto" : kind === "debt" ? "deuda" : "fondo";
+    const stamp = period.mode === "month" ? (period.monthKey ?? "") : period.mode === "year" ? String(period.year ?? "") : `${period.from?.toISOString().slice(0,10)}_${period.to?.toISOString().slice(0,10)}`;
+    downloadCSV(`reporte-${tag}-${stamp}.csv`, rows);
+  };
 
   const reportTypes: { key: ReportKind; label: string }[] = [
     { key: "budget", label: t.reports.typeBudget },
@@ -168,13 +243,22 @@ export function ReportsView() {
             <PeriodSelector value={period} onChange={setPeriod} />
           </div>
 
-          <button
-            onClick={onDownload}
-            disabled={(kind === "debt" && !debtId) || (kind === "shield" && !shieldId)}
-            className="inline-flex items-center gap-2 bg-wine text-white text-sm px-6 py-3 rounded-full font-medium hover:opacity-90 transition disabled:opacity-40"
-          >
-            <FileDown className="size-4" /> {t.reports.download}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={onDownload}
+              disabled={(kind === "debt" && !debtId) || (kind === "shield" && !shieldId)}
+              className="inline-flex items-center gap-2 bg-wine text-white text-sm px-6 py-3 rounded-full font-medium hover:opacity-90 transition disabled:opacity-40"
+            >
+              <FileDown className="size-4" /> {t.reports.download}
+            </button>
+            <button
+              onClick={onDownloadCSV}
+              disabled={!preview || preview.rows.length === 0}
+              className="inline-flex items-center gap-2 bg-sage-900 text-sage-50 text-sm px-6 py-3 rounded-full font-medium hover:bg-sage-700 transition disabled:opacity-40"
+            >
+              <FileSpreadsheet className="size-4" /> Exportar CSV
+            </button>
+          </div>
         </div>
 
         {preview && (

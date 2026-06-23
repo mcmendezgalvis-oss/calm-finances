@@ -191,8 +191,8 @@ export const dict: Record<Lang, DictShape> = {
     dashboard: {
       title: "Mi Dashboard de Paz",
       greeting: "Hola",
-      greetingTemplate: "Hola, {name}. Me encanta que estés por aquí — vamos a ponerle intención a nuestro dinero.",
-      greetingFallback: "Hola. Me encanta que estés por aquí — vamos a ponerle intención a nuestro dinero.",
+      greetingTemplate: "¡Hola, {name}! Me encanta que estés por aquí — vamos a ponerle intención a nuestro dinero.",
+      greetingFallback: "¡Hola! Me encanta que estés por aquí — vamos a ponerle intención a nuestro dinero.",
       destination: "El Destino de mis Ingresos",
       evolution: "Evolución Mensual",
       debtCurve: "El Derrumbe de las Deudas",
@@ -425,8 +425,8 @@ export const dict: Record<Lang, DictShape> = {
     dashboard: {
       title: "My Peace Dashboard",
       greeting: "Hello",
-      greetingTemplate: "Hello, {name}. So glad you're here — let's give intention to our money.",
-      greetingFallback: "Hello, welcome. So glad you're here — let's give intention to our money.",
+      greetingTemplate: "Hi, {name}! So glad you're here — let's give intention to our money.",
+      greetingFallback: "Hi there! So glad you're here — let's give intention to our money.",
       destination: "Where my Income Goes",
       evolution: "Monthly Evolution",
       debtCurve: "Debt Collapse",
