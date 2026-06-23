@@ -352,7 +352,7 @@ export const dict: Record<Lang, DictShape> = {
     nav: {
       dashboard: "My Calm",
       budget: "Budget",
-      shields: "My Shields",
+      shields: "My shields & goals",
       debts: "Goodbye to Chains",
       settings: "Settings",
     },
