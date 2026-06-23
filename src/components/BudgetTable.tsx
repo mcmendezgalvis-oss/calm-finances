@@ -58,6 +58,7 @@ export function BudgetTable({
               <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-wine font-serif">
                 <Icon className="size-4 text-wine/70" />
                 {t.budget.groups[g]}
+                <GroupHelp group={g} />
               </h3>
               <span className="text-[11px] text-sage-400 font-mono">
                 {tab === "real" ? fmt(groupTotal.real, currency) : fmt(groupTotal.planned, currency)}
