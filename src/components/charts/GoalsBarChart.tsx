@@ -4,6 +4,7 @@ import { useApp } from "@/store/useApp";
 import { useI18n } from "@/i18n/I18nProvider";
 import { fmt, EMERGENCY_FUND_ID } from "@/lib/finance";
 import { HScrollChart } from "@/components/HScrollChart";
+import { ChartTitleHelp } from "./ChartTitleHelp";
 
 const PALETTE = ["#6b8e6b", "#c48a7a", "#722F37", "#8c736d", "#b6cbb5", "#e8b7b1", "#94b194"];
 
@@ -15,18 +16,17 @@ export function GoalsBarChart({ year }: { year: number }) {
   const data = useMemo(() => {
     return Array.from({ length: 12 }, (_, m) => {
       const d = new Date(year, m, 1);
-      const start = new Date(year, m, 1).getTime();
       const end = new Date(year, m + 1, 0).getTime() + 86400_000 - 1;
       const row: Record<string, number | string> = {
         month: d.toLocaleDateString(lang === "es" ? "es-ES" : "en-US", { month: "short" }),
       };
       for (const s of shields) {
-        let total = 0;
+        let balance = 0;
         for (const h of s.history) {
           const ts = new Date(h.date).getTime();
-          if (ts >= start && ts <= end) total += h.type === "deposit" ? h.amount : -h.amount;
+          if (ts <= end) balance += h.type === "deposit" ? h.amount : -h.amount;
         }
-        row[s.id] = Math.max(0, total);
+        row[s.id] = Math.max(0, balance);
       }
       return row;
     });
@@ -35,9 +35,10 @@ export function GoalsBarChart({ year }: { year: number }) {
   if (shields.length === 0) {
     return (
       <section className="bg-white border border-sage-100 rounded-3xl p-6">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-wine mb-4">
-          {t.emergency.customGoals} · {year}
-        </h2>
+        <ChartTitleHelp
+          title={`${t.emergency.customGoals} · ${year}`}
+          help="Sigue el progreso acumulativo de tus ahorros con propósito. Observa cómo cada meta crece mes a mes de forma independiente."
+        />
         <p className="text-sm text-sage-500 italic py-12 text-center">{t.dashboard.noHistoryYet}</p>
       </section>
     );
@@ -45,9 +46,10 @@ export function GoalsBarChart({ year }: { year: number }) {
 
   return (
     <section className="bg-white border border-sage-100 rounded-3xl p-6">
-      <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-wine mb-4">
-        {t.emergency.customGoals} · {year}
-      </h2>
+      <ChartTitleHelp
+        title={`${t.emergency.customGoals} · ${year}`}
+        help="Sigue el progreso acumulativo de tus ahorros con propósito. Observa cómo cada meta crece mes a mes de forma independiente."
+      />
       <HScrollChart minWidth={Math.max(12 * 70, 360)} height={260}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data}>
@@ -57,7 +59,7 @@ export function GoalsBarChart({ year }: { year: number }) {
             <Tooltip formatter={(v: number) => fmt(v, currency)} />
             <Legend wrapperStyle={{ fontSize: 11 }} />
             {shields.map((s, i) => (
-              <Bar key={s.id} dataKey={s.id} name={s.name} stackId="g" fill={PALETTE[i % PALETTE.length]} radius={[4, 4, 0, 0]} />
+              <Bar key={s.id} dataKey={s.id} name={s.name} fill={PALETTE[i % PALETTE.length]} radius={[4, 4, 0, 0]} />
             ))}
           </BarChart>
         </ResponsiveContainer>
