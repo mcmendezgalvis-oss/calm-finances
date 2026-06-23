@@ -34,12 +34,45 @@ type DictShape = {
     download: string;
     noData: string;
     history: string;
+    totalRow: string;
   };
   toasts: {
     goConfigureDebt: string;
     goConfigureShield: string;
     goButtonDebts: string;
     goButtonShields: string;
+  };
+  emergency: {
+    title: string;
+    intro: string;
+    level1: string;
+    level2: string;
+    level3: string;
+    progressTo: string;
+    customGoals: string;
+  };
+  groupHelp: Record<"income" | "muros" | "debts" | "generosity" | "lifestyle" | "future", string>;
+  snowball: {
+    coach: string;
+    asOf: string;
+    currentBalance: string;
+  };
+  categoryPicker: {
+    chooseCategory: string;
+    customLabel: string;
+    customPlaceholder: string;
+    confirm: string;
+  };
+  trophies: {
+    title: string;
+    subtitle: string;
+    empty: string;
+    nav: string;
+  };
+  dashboardPeriod: {
+    prev: string;
+    next: string;
+    mode: string;
   };
   months: string[];
 };
