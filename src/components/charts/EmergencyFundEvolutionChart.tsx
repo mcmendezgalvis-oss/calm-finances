@@ -4,6 +4,7 @@ import { useApp, monthKeyOf } from "@/store/useApp";
 import { useI18n } from "@/i18n/I18nProvider";
 import { fmt, EMERGENCY_FUND_ID, emergencyLevels, muros4Total } from "@/lib/finance";
 import { HScrollChart } from "@/components/HScrollChart";
+import { ChartTitleHelp } from "./ChartTitleHelp";
 
 export function EmergencyFundEvolutionChart({ year }: { year: number }) {
   const { t, lang } = useI18n();
@@ -39,9 +40,10 @@ export function EmergencyFundEvolutionChart({ year }: { year: number }) {
 
   return (
     <section className="bg-white border border-sage-100 rounded-3xl p-6">
-      <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-wine mb-4">
-        {t.emergency.title} · {year}
-      </h2>
+      <ChartTitleHelp
+        title={`${t.emergency.title} · ${year}`}
+        help="Visualiza el crecimiento de tu saldo acumulado. Este es tu escudo principal para proteger tu paz financiera ante imprevistos."
+      />
       <HScrollChart minWidth={Math.max(12 * 70, 360)} height={240}>
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data}>
