@@ -288,8 +288,34 @@ export const useApp = create<Store>()(
         set((s) => {
           const prev = s.months[previousMonthKey(monthKey)];
           if (!prev) return s;
-          const lines: BudgetLine[] = prev.lines.map((l) => ({ ...l, id: uid(), real: 0 }));
-          return { months: { ...s.months, [monthKey]: { monthKey, lines } } };
+          const existing = s.months[monthKey];
+          const existingLines = existing?.lines ?? [];
+          // Names of "carry surplus" lines to never copy from prev (in any language).
+          const isCarryName = (name: string) => {
+            const n = name.trim().toLowerCase();
+            return n === "sobrante mes anterior" || n === "previous month surplus" || n === "surplus from previous month";
+          };
+          // Existing linked targets and carry lines in destination must be preserved as-is.
+          const existingLinkedShield = new Set(
+            existingLines.filter((l) => l.linkedShieldId).map((l) => l.linkedShieldId as string),
+          );
+          const existingLinkedDebt = new Set(
+            existingLines.filter((l) => l.linkedDebtId).map((l) => l.linkedDebtId as string),
+          );
+          const existingHasCarry = existingLines.some((l) => l.group === "income" && isCarryName(l.name));
+          const copied: BudgetLine[] = [];
+          for (const l of prev.lines) {
+            // Skip the previous month's surplus carry line — it doesn't belong here.
+            if (l.group === "income" && isCarryName(l.name)) continue;
+            // Don't re-copy a carry line if destination already has one.
+            if (existingHasCarry && l.group === "income" && isCarryName(l.name)) continue;
+            // Don't duplicate linked goal/debt lines that already exist in destination.
+            if (l.linkedShieldId && existingLinkedShield.has(l.linkedShieldId)) continue;
+            if (l.linkedDebtId && existingLinkedDebt.has(l.linkedDebtId)) continue;
+            copied.push({ ...l, id: uid(), real: 0 });
+          }
+          const merged: BudgetLine[] = [...existingLines, ...copied];
+          return { months: { ...s.months, [monthKey]: { monthKey, lines: merged, ...(existing ? { closed: existing.closed, closedAt: existing.closedAt, snapshot: existing.snapshot, surplusCarryForwardId: existing.surplusCarryForwardId } : {}) } } };
         });
       },
 
