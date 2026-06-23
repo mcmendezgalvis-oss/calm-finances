@@ -9,8 +9,32 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PresupuestoRouteImport } from './routes/presupuesto'
+import { Route as EscudosRouteImport } from './routes/escudos'
+import { Route as DeudasRouteImport } from './routes/deudas'
+import { Route as AjustesRouteImport } from './routes/ajustes'
 import { Route as IndexRouteImport } from './routes/index'
 
+const PresupuestoRoute = PresupuestoRouteImport.update({
+  id: '/presupuesto',
+  path: '/presupuesto',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EscudosRoute = EscudosRouteImport.update({
+  id: '/escudos',
+  path: '/escudos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeudasRoute = DeudasRouteImport.update({
+  id: '/deudas',
+  path: '/deudas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AjustesRoute = AjustesRouteImport.update({
+  id: '/ajustes',
+  path: '/ajustes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -19,28 +43,72 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ajustes': typeof AjustesRoute
+  '/deudas': typeof DeudasRoute
+  '/escudos': typeof EscudosRoute
+  '/presupuesto': typeof PresupuestoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ajustes': typeof AjustesRoute
+  '/deudas': typeof DeudasRoute
+  '/escudos': typeof EscudosRoute
+  '/presupuesto': typeof PresupuestoRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/ajustes': typeof AjustesRoute
+  '/deudas': typeof DeudasRoute
+  '/escudos': typeof EscudosRoute
+  '/presupuesto': typeof PresupuestoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/ajustes' | '/deudas' | '/escudos' | '/presupuesto'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/ajustes' | '/deudas' | '/escudos' | '/presupuesto'
+  id: '__root__' | '/' | '/ajustes' | '/deudas' | '/escudos' | '/presupuesto'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AjustesRoute: typeof AjustesRoute
+  DeudasRoute: typeof DeudasRoute
+  EscudosRoute: typeof EscudosRoute
+  PresupuestoRoute: typeof PresupuestoRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/presupuesto': {
+      id: '/presupuesto'
+      path: '/presupuesto'
+      fullPath: '/presupuesto'
+      preLoaderRoute: typeof PresupuestoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/escudos': {
+      id: '/escudos'
+      path: '/escudos'
+      fullPath: '/escudos'
+      preLoaderRoute: typeof EscudosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/deudas': {
+      id: '/deudas'
+      path: '/deudas'
+      fullPath: '/deudas'
+      preLoaderRoute: typeof DeudasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ajustes': {
+      id: '/ajustes'
+      path: '/ajustes'
+      fullPath: '/ajustes'
+      preLoaderRoute: typeof AjustesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -53,17 +121,11 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AjustesRoute: AjustesRoute,
+  DeudasRoute: DeudasRoute,
+  EscudosRoute: EscudosRoute,
+  PresupuestoRoute: PresupuestoRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
