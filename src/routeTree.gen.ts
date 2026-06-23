@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PresupuestoRouteImport } from './routes/presupuesto'
+import { Route as EscudosRouteImport } from './routes/escudos'
 import { Route as IndexRouteImport } from './routes/index'
 
 const PresupuestoRoute = PresupuestoRouteImport.update({
   id: '/presupuesto',
   path: '/presupuesto',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EscudosRoute = EscudosRouteImport.update({
+  id: '/escudos',
+  path: '/escudos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -25,27 +31,31 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/escudos': typeof EscudosRoute
   '/presupuesto': typeof PresupuestoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/escudos': typeof EscudosRoute
   '/presupuesto': typeof PresupuestoRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/escudos': typeof EscudosRoute
   '/presupuesto': typeof PresupuestoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/presupuesto'
+  fullPaths: '/' | '/escudos' | '/presupuesto'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/presupuesto'
-  id: '__root__' | '/' | '/presupuesto'
+  to: '/' | '/escudos' | '/presupuesto'
+  id: '__root__' | '/' | '/escudos' | '/presupuesto'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  EscudosRoute: typeof EscudosRoute
   PresupuestoRoute: typeof PresupuestoRoute
 }
 
@@ -56,6 +66,13 @@ declare module '@tanstack/react-router' {
       path: '/presupuesto'
       fullPath: '/presupuesto'
       preLoaderRoute: typeof PresupuestoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/escudos': {
+      id: '/escudos'
+      path: '/escudos'
+      fullPath: '/escudos'
+      preLoaderRoute: typeof EscudosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -70,6 +87,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  EscudosRoute: EscudosRoute,
   PresupuestoRoute: PresupuestoRoute,
 }
 export const routeTree = rootRouteImport
