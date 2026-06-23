@@ -148,7 +148,7 @@ export const dict: Record<Lang, DictShape> = {
       remove: "Quitar",
     },
     shields: {
-      title: "Mis Escudos",
+      title: "Mis escudos y metas",
       subtitle: "Tu refugio en cada estación.",
       initial: "Escudo Inicial",
       initialDesc: "Un primer fondo de paz: $1,000 USD",
