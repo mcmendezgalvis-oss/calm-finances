@@ -101,10 +101,14 @@ export function Dashboard() {
     <AppShell>
       <header className="mb-10 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-serif text-5xl text-sage-900">{greeting}</h1>
+          <h1 className="font-serif text-5xl text-wine">{greeting}</h1>
           <p className="text-sm text-sage-600 italic mt-2">{t.tagline}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="inline-flex rounded-full bg-sage-50 p-1 border border-sage-200 text-xs">
+            <button onClick={() => setPeriodMode("month")} className={`px-3 py-1.5 rounded-full ${periodMode === "month" ? "bg-wine text-white" : "text-sage-600"}`}>{t.reports.period.month}</button>
+            <button onClick={() => setPeriodMode("year")} className={`px-3 py-1.5 rounded-full ${periodMode === "year" ? "bg-wine text-white" : "text-sage-600"}`}>{t.reports.period.year}</button>
+          </div>
           <button
             disabled={!premium}
             onClick={() => generateMonthReport(state, monthKey)}
@@ -124,7 +128,7 @@ export function Dashboard() {
 
       {/* Always-free donut */}
       <section className="bg-white border border-sage-100 rounded-3xl p-6 mb-6">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-sage-500 mb-4">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-wine mb-4">
           {t.dashboard.destination}
         </h2>
         {donutData.length === 0 ? (
@@ -151,7 +155,7 @@ export function Dashboard() {
       <PremiumGate allowReadOnly>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <section className="bg-white border border-sage-100 rounded-3xl p-6">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-sage-500 mb-4">
+            <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-wine mb-4">
               {t.dashboard.evolution}
             </h2>
             <div className="h-56">
@@ -161,6 +165,7 @@ export function Dashboard() {
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#6b8e6b" }} />
                   <YAxis tick={{ fontSize: 11, fill: "#6b8e6b" }} />
                   <Tooltip formatter={(v: number) => fmt(v, currency)} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
                   <Bar dataKey="income" name={t.dashboard.income} fill="#6b8e6b" radius={[6,6,0,0]} />
                   <Bar dataKey="expenses" name={t.dashboard.expenses} fill="#c48a7a" radius={[6,6,0,0]} />
                 </BarChart>
@@ -169,24 +174,30 @@ export function Dashboard() {
           </section>
 
           <section className="bg-white border border-sage-100 rounded-3xl p-6">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-sage-500 mb-4">
+            <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-wine mb-4">
               {t.dashboard.debtCurve}
             </h2>
-            <div className="h-56">
-              <ResponsiveContainer>
-                <LineChart data={debtCurveData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e8f0e8" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#6b8e6b" }} />
-                  <YAxis tick={{ fontSize: 11, fill: "#6b8e6b" }} />
-                  <Tooltip formatter={(v: number) => fmt(v, currency)} />
-                  <Line dataKey="total" stroke="#c48a7a" strokeWidth={2.5} dot={false} type="monotone" />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+            {debtBars.length === 0 ? (
+              <p className="text-sm text-sage-500 italic py-12 text-center">{t.dashboard.noHistoryYet}</p>
+            ) : (
+              <div style={{ height: Math.max(180, debtBars.length * 44) }}>
+                <ResponsiveContainer>
+                  <BarChart data={debtBars} layout="vertical" margin={{ left: 16, right: 96 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e8f0e8" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 11, fill: "#6b8e6b" }} />
+                    <YAxis type="category" dataKey="label" tick={{ fontSize: 11, fill: "#722F37", fontWeight: 600 }} width={36} />
+                    <Tooltip formatter={(v: number) => fmt(v, currency)} labelFormatter={(l, p) => (p && p[0] && (p[0] as { payload?: { name?: string } }).payload?.name) || String(l)} />
+                    <Bar dataKey="current" fill="#722F37" radius={[0, 6, 6, 0]}>
+                      <LabelList dataKey="tag" position="right" style={{ fontSize: 11, fill: "#722F37", fontWeight: 600 }} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </section>
 
           <section className="bg-white border border-sage-100 rounded-3xl p-6 lg:col-span-2">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-sage-500 mb-4">
+            <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-wine mb-4">
               {t.dashboard.shieldsGrowth}
             </h2>
             <div className="h-56">
