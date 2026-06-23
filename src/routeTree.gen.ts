@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as PresupuestoRouteImport } from './routes/presupuesto'
 import { Route as EscudosRouteImport } from './routes/escudos'
 import { Route as DeudasRouteImport } from './routes/deudas'
+import { Route as AjustesRouteImport } from './routes/ajustes'
 import { Route as IndexRouteImport } from './routes/index'
 
 const PresupuestoRoute = PresupuestoRouteImport.update({
@@ -29,6 +30,11 @@ const DeudasRoute = DeudasRouteImport.update({
   path: '/deudas',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AjustesRoute = AjustesRouteImport.update({
+  id: '/ajustes',
+  path: '/ajustes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -37,12 +43,14 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ajustes': typeof AjustesRoute
   '/deudas': typeof DeudasRoute
   '/escudos': typeof EscudosRoute
   '/presupuesto': typeof PresupuestoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ajustes': typeof AjustesRoute
   '/deudas': typeof DeudasRoute
   '/escudos': typeof EscudosRoute
   '/presupuesto': typeof PresupuestoRoute
@@ -50,20 +58,22 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/ajustes': typeof AjustesRoute
   '/deudas': typeof DeudasRoute
   '/escudos': typeof EscudosRoute
   '/presupuesto': typeof PresupuestoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/deudas' | '/escudos' | '/presupuesto'
+  fullPaths: '/' | '/ajustes' | '/deudas' | '/escudos' | '/presupuesto'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/deudas' | '/escudos' | '/presupuesto'
-  id: '__root__' | '/' | '/deudas' | '/escudos' | '/presupuesto'
+  to: '/' | '/ajustes' | '/deudas' | '/escudos' | '/presupuesto'
+  id: '__root__' | '/' | '/ajustes' | '/deudas' | '/escudos' | '/presupuesto'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AjustesRoute: typeof AjustesRoute
   DeudasRoute: typeof DeudasRoute
   EscudosRoute: typeof EscudosRoute
   PresupuestoRoute: typeof PresupuestoRoute
@@ -92,6 +102,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DeudasRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ajustes': {
+      id: '/ajustes'
+      path: '/ajustes'
+      fullPath: '/ajustes'
+      preLoaderRoute: typeof AjustesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -104,6 +121,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AjustesRoute: AjustesRoute,
   DeudasRoute: DeudasRoute,
   EscudosRoute: EscudosRoute,
   PresupuestoRoute: PresupuestoRoute,
