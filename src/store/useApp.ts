@@ -134,6 +134,25 @@ export const useApp = create<Store>()(
         return fresh;
       },
 
+      ensureEmergencyFund: () => {
+        const s = get();
+        if (s.shields.find((sh) => sh.id === EMERGENCY_FUND_ID)) return;
+        set({
+          shields: [
+            ...s.shields,
+            {
+              id: EMERGENCY_FUND_ID,
+              name: "Fondo de Emergencia",
+              kind: "emergency",
+              goal: 1000,
+              balance: 0,
+              createdAt: new Date().toISOString(),
+              history: [],
+            },
+          ],
+        });
+      },
+
       addLine: (monthKey, group, name = "") => {
         const id = uid();
         set((s) => {
@@ -156,6 +175,7 @@ export const useApp = create<Store>()(
           const lines = month.lines.map((l) => (l.id === lineId ? { ...l, ...patch } : l));
           let shields = s.shields;
           let debts = s.debts;
+          let trophies = s.trophies;
 
           if (before && patch.real !== undefined && patch.real !== before.real) {
             const delta = patch.real - before.real;
@@ -172,12 +192,24 @@ export const useApp = create<Store>()(
                     }
                   : sh,
               );
+              if (before.linkedShieldId === EMERGENCY_FUND_ID) {
+                const muros = muros4Total(month);
+                const levels = emergencyLevels(muros);
+                const fund = shields.find((sh) => sh.id === EMERGENCY_FUND_ID);
+                if (fund) {
+                  const reached = emergencyLevelReached(fund.balance, levels);
+                  trophies = maybeAwardShieldTrophy(trophies, reached);
+                }
+              }
             }
             if (before.linkedDebtId) {
               debts = debts.map((dbt) => {
                 if (dbt.id !== before.linkedDebtId) return dbt;
                 const newBal = Math.max(0, dbt.currentBalance - delta);
                 const justPaid = !dbt.paid && newBal === 0 && delta > 0;
+                if (justPaid) {
+                  trophies = maybeAward(trophies, "debt_paid", `Liberaste: ${dbt.name}`, dbt.id);
+                }
                 return {
                   ...dbt,
                   currentBalance: newBal,
@@ -187,7 +219,7 @@ export const useApp = create<Store>()(
               });
             }
           }
-          return { months: { ...s.months, [monthKey]: { ...month, lines } }, shields, debts };
+          return { months: { ...s.months, [monthKey]: { ...month, lines } }, shields, debts, trophies };
         });
       },
 
@@ -195,6 +227,8 @@ export const useApp = create<Store>()(
         set((s) => {
           const month = s.months[monthKey];
           if (!month) return s;
+          const target = month.lines.find((l) => l.id === lineId);
+          if (target?.permanent) return s; // protect permanent (Emergency Fund) line
           return { months: { ...s.months, [monthKey]: { ...month, lines: month.lines.filter((l) => l.id !== lineId) } } };
         });
       },
@@ -222,8 +256,8 @@ export const useApp = create<Store>()(
       removeShield: (id) => set((s) => ({ shields: s.shields.filter((sh) => sh.id !== id) })),
 
       shieldDeposit: (id, amount, note, date) =>
-        set((s) => ({
-          shields: s.shields.map((sh) =>
+        set((s) => {
+          const shields = s.shields.map((sh) =>
             sh.id === id
               ? {
                   ...sh,
@@ -231,8 +265,20 @@ export const useApp = create<Store>()(
                   history: [...sh.history, { id: uid(), date: date ?? new Date().toISOString(), type: "deposit", amount, note } as ShieldTx],
                 }
               : sh,
-          ),
-        })),
+          );
+          let trophies = s.trophies;
+          if (id === EMERGENCY_FUND_ID) {
+            const monthKey = currentMonthKey();
+            const month = s.months[monthKey] ?? emptyMonth(monthKey);
+            const muros = muros4Total(month);
+            const fund = shields.find((sh) => sh.id === EMERGENCY_FUND_ID);
+            if (fund) {
+              const reached = emergencyLevelReached(fund.balance, emergencyLevels(muros));
+              trophies = maybeAwardShieldTrophy(trophies, reached);
+            }
+          }
+          return { shields, trophies };
+        }),
 
       shieldWithdraw: (id, amount, note, date) =>
         set((s) => ({
@@ -286,11 +332,12 @@ export const useApp = create<Store>()(
 
       registerDebtPayment: (id, amount, date, note) => {
         let paidOff = false;
-        set((s) => ({
-          debts: s.debts.map((d) => {
+        let paidName = "";
+        set((s) => {
+          const debts = s.debts.map((d) => {
             if (d.id !== id) return d;
             const newBal = Math.max(0, d.currentBalance - amount);
-            if (newBal === 0 && !d.paid) paidOff = true;
+            if (newBal === 0 && !d.paid) { paidOff = true; paidName = d.name; }
             return {
               ...d,
               currentBalance: newBal,
@@ -301,9 +348,52 @@ export const useApp = create<Store>()(
                 { id: uid(), date: date ?? new Date().toISOString(), delta: -amount, note: note ?? "Pago" } as DebtAdjustment,
               ],
             };
-          }),
-        }));
+          });
+          const trophies = paidOff
+            ? maybeAward(s.trophies, "debt_paid", `Liberaste: ${paidName}`, id)
+            : s.trophies;
+          return { debts, trophies };
+        });
         return paidOff;
+      },
+
+      awardTrophy: (kind, label, contextId, monthKey) => {
+        const s = get();
+        const next = maybeAward(s.trophies, kind, label, contextId, monthKey);
+        if (next === s.trophies) return null;
+        const newTrophy = next[next.length - 1];
+        set({ trophies: next });
+        return newTrophy;
+      },
+
+      checkMonthClose: (monthKey) => {
+        const s = get();
+        const month = s.months[monthKey];
+        if (!month) return [];
+        const t = groupTotals(month.lines);
+        const earned: Trophy[] = [];
+        const expensesGroups = ["muros", "debts", "generosity", "lifestyle", "future"] as const;
+        const plannedExp = expensesGroups.reduce((sum, g) => sum + t[g].planned, 0);
+        const realExp = expensesGroups.reduce((sum, g) => sum + t[g].real, 0);
+        let trophies = s.trophies;
+        if (plannedExp > 0 && realExp > 0 && realExp < plannedExp) {
+          const before = trophies;
+          trophies = maybeAward(trophies, "under_budget", `Gastaste menos en ${monthKey}`, undefined, monthKey);
+          if (trophies !== before) earned.push(trophies[trophies.length - 1]);
+        }
+        const [y, m] = monthKey.split("-").map(Number);
+        const prevKey = `${m === 1 ? y - 1 : y}-${String(m === 1 ? 12 : m - 1).padStart(2, "0")}`;
+        const prev = s.months[prevKey];
+        if (prev) {
+          const tp = groupTotals(prev.lines);
+          if (t.income.real > 0 && tp.income.real > 0 && t.income.real > tp.income.real) {
+            const before = trophies;
+            trophies = maybeAward(trophies, "income_growth", `Ingresos al alza vs ${prevKey}`, undefined, monthKey);
+            if (trophies !== before) earned.push(trophies[trophies.length - 1]);
+          }
+        }
+        if (trophies !== s.trophies) set({ trophies });
+        return earned;
       },
 
       setProfileName: (name) => set((s) => ({ profile: { ...s.profile, name } })),
