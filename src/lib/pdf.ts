@@ -223,6 +223,7 @@ export function generateBudgetVsRealReport(state: AppState, from: Date, to: Date
 
   const keys = monthsInRange(from, to);
   const rows: (string | number)[][] = [];
+  let totPlanned = 0, totReal = 0, totDiff = 0;
   for (const key of keys) {
     const m = state.months[key];
     if (!m) continue;
@@ -230,9 +231,17 @@ export function generateBudgetVsRealReport(state: AppState, from: Date, to: Date
     for (const g of GROUP_ORDER) {
       const diff = g === "income" ? t[g].real - t[g].planned : t[g].planned - t[g].real;
       rows.push([key, g, fmt(t[g].planned, currency), fmt(t[g].real, currency), (diff >= 0 ? "+" : "") + fmt(diff, currency)]);
+      totPlanned += t[g].planned; totReal += t[g].real; totDiff += diff;
     }
   }
   if (rows.length === 0) rows.push(["—", "Sin datos", "", "", ""]);
+  else rows.push([
+    { content: "TOTAL", styles: { fontStyle: "bold", fillColor: [232, 240, 232], textColor: [114, 47, 55] } } as never,
+    { content: "", styles: { fillColor: [232, 240, 232] } } as never,
+    { content: fmt(totPlanned, currency), styles: { fontStyle: "bold", fillColor: [232, 240, 232], textColor: [114, 47, 55] } } as never,
+    { content: fmt(totReal, currency), styles: { fontStyle: "bold", fillColor: [232, 240, 232], textColor: [114, 47, 55] } } as never,
+    { content: (totDiff >= 0 ? "+" : "") + fmt(totDiff, currency), styles: { fontStyle: "bold", fillColor: [232, 240, 232], textColor: [114, 47, 55] } } as never,
+  ]);
   autoTable(doc, {
     startY: 120,
     head: [["Mes", "Rubro", "Plan", "Real", "Diferencia"]],
@@ -270,7 +279,16 @@ export function generateDebtDetailReport(state: AppState, debtId: string, from: 
       (a.delta >= 0 ? "+" : "") + fmt(a.delta, currency),
       a.note ?? "",
     ]);
+  const totalDelta = debt.adjustments
+    .filter((a) => { const ts = new Date(a.date).getTime(); return ts >= tFrom && ts <= tTo; })
+    .reduce((s, a) => s + a.delta, 0);
   if (rows.length === 0) rows.push(["—", "Sin movimientos", "", ""]);
+  else rows.push([
+    { content: "TOTAL", styles: { fontStyle: "bold", fillColor: [232, 240, 232], textColor: [114, 47, 55] } } as never,
+    { content: "", styles: { fillColor: [232, 240, 232] } } as never,
+    { content: (totalDelta >= 0 ? "+" : "") + fmt(totalDelta, currency), styles: { fontStyle: "bold", fillColor: [232, 240, 232], textColor: [114, 47, 55] } } as never,
+    { content: "", styles: { fillColor: [232, 240, 232] } } as never,
+  ]);
   autoTable(doc, {
     startY: 140,
     head: [["Fecha", "Tipo", "Monto", "Nota"]],
@@ -305,7 +323,16 @@ export function generateShieldMovementsReport(state: AppState, shieldId: string,
       (h.type === "deposit" ? "+" : "−") + fmt(h.amount, currency),
       h.note ?? "",
     ]);
+  const totalNet = shield.history
+    .filter((h) => { const ts = new Date(h.date).getTime(); return ts >= tFrom && ts <= tTo; })
+    .reduce((s, h) => s + (h.type === "deposit" ? h.amount : -h.amount), 0);
   if (rows.length === 0) rows.push(["—", "Sin movimientos", "", ""]);
+  else rows.push([
+    { content: "TOTAL", styles: { fontStyle: "bold", fillColor: [232, 240, 232], textColor: [114, 47, 55] } } as never,
+    { content: "", styles: { fillColor: [232, 240, 232] } } as never,
+    { content: (totalNet >= 0 ? "+" : "−") + fmt(Math.abs(totalNet), currency), styles: { fontStyle: "bold", fillColor: [232, 240, 232], textColor: [114, 47, 55] } } as never,
+    { content: "", styles: { fillColor: [232, 240, 232] } } as never,
+  ]);
   autoTable(doc, {
     startY: 140,
     head: [["Fecha", "Tipo", "Monto", "Nota"]],

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { Trash2, Sparkles, Home, Link2Off, HandHeart, Flower2, Sprout } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -6,6 +6,8 @@ import { useApp } from "@/store/useApp";
 import { useI18n } from "@/i18n/I18nProvider";
 import { GROUP_ORDER, groupTotals, fmt, lineDiff } from "@/lib/finance";
 import { NumberCell } from "./NumberCell";
+import { CategoryPicker } from "./CategoryPicker";
+import { GroupHelp } from "./GroupHelp";
 import type { GroupKey, MonthBudget } from "@/store/types";
 
 const GROUP_ICONS: Record<GroupKey, React.ComponentType<{ className?: string }>> = {
@@ -32,6 +34,7 @@ export function BudgetTable({
   const updateLine = useApp((s) => s.updateLine);
   const removeLine = useApp((s) => s.removeLine);
   const addLine = useApp((s) => s.addLine);
+  const focusRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const grouped = useMemo(() => {
     const map: Record<GroupKey, typeof month.lines> = {
@@ -55,6 +58,7 @@ export function BudgetTable({
               <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-wine font-serif">
                 <Icon className="size-4 text-wine/70" />
                 {t.budget.groups[g]}
+                <GroupHelp group={g} />
               </h3>
               <span className="text-[11px] text-sage-400 font-mono">
                 {tab === "real" ? fmt(groupTotal.real, currency) : fmt(groupTotal.planned, currency)}
@@ -89,6 +93,7 @@ export function BudgetTable({
                     {tab === "plan" && (
                       <>
                         <NumberCell
+                            ref={(el) => { focusRefs.current[l.id] = el; }}
                           value={l.planned}
                           onChange={(n) => updateLine(month.monthKey, l.id, { planned: n })}
                           ariaLabel={t.budget.planned}
@@ -103,6 +108,7 @@ export function BudgetTable({
                           {fmt(l.planned, currency)}
                         </div>
                         <NumberCell
+                            ref={(el) => { focusRefs.current[l.id] = el; }}
                           value={l.real}
                           tone="realidad"
                           onChange={(n) => updateLine(month.monthKey, l.id, { real: n })}
@@ -130,13 +136,17 @@ export function BudgetTable({
                     )}
 
                     {tab !== "diff" ? (
-                      <button
-                        onClick={() => removeLine(month.monthKey, l.id)}
-                        className="opacity-0 group-hover:opacity-100 text-sage-300 hover:text-clay p-1"
-                        aria-label={t.budget.remove}
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
+                        l.permanent ? (
+                          <div />
+                        ) : (
+                          <button
+                            onClick={() => removeLine(month.monthKey, l.id)}
+                            className="opacity-0 group-hover:opacity-100 text-sage-300 hover:text-clay p-1"
+                            aria-label={t.budget.remove}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        )
                     ) : (
                       <div />
                     )}
@@ -151,28 +161,43 @@ export function BudgetTable({
               })}
 
               {tab !== "diff" && (
-                <button
-                  onClick={() => {
-                    if (g === "debts") {
+                g === "debts" ? (
+                  <button
+                    onClick={() => {
                       toast(t.toasts.goConfigureDebt, {
                         icon: <Sparkles className="size-4 text-wine" />,
                         action: { label: t.toasts.goButtonDebts, onClick: () => navigate({ to: "/deudas" }) },
                       });
-                      return;
-                    }
-                    if (g === "future") {
+                    }}
+                    className="text-xs text-sage-500 hover:text-wine px-2 py-2 italic transition-colors"
+                  >
+                    {t.budget.addLine}
+                  </button>
+                ) : g === "future" ? (
+                  <button
+                    onClick={() => {
                       toast(t.toasts.goConfigureShield, {
                         icon: <Sparkles className="size-4 text-wine" />,
                         action: { label: t.toasts.goButtonShields, onClick: () => navigate({ to: "/escudos" }) },
                       });
-                      return;
-                    }
-                    addLine(month.monthKey, g);
-                  }}
-                  className="text-xs text-sage-500 hover:text-wine px-2 py-2 italic transition-colors"
-                >
-                  {t.budget.addLine}
-                </button>
+                    }}
+                    className="text-xs text-sage-500 hover:text-wine px-2 py-2 italic transition-colors"
+                  >
+                    {t.budget.addLine}
+                  </button>
+                ) : (
+                  <CategoryPicker
+                    group={g}
+                    label={t.budget.addLine.replace("+ ", "")}
+                    onPick={(name) => {
+                      const id = addLine(month.monthKey, g, name);
+                      requestAnimationFrame(() => {
+                        const el = focusRefs.current[id];
+                        if (el) { el.focus(); el.select(); }
+                      });
+                    }}
+                  />
+                )
               )}
             </div>
           </section>

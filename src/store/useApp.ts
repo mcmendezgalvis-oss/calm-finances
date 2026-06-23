@@ -2,8 +2,9 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type {
   AppState, BudgetLine, Debt, DebtAdjustment, GroupKey, MonthBudget,
-  ShieldTx, UserPlan,
+  ShieldTx, Trophy, TrophyKind, UserPlan,
 } from "./types";
+import { EMERGENCY_FUND_ID, emergencyLevels, emergencyLevelReached, groupTotals, muros4Total } from "@/lib/finance";
 
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
@@ -18,6 +19,7 @@ export function emptyMonth(monthKey: string): MonthBudget {
 
 interface Actions {
   ensureMonth: (monthKey: string) => MonthBudget;
+  ensureEmergencyFund: () => void;
   addLine: (monthKey: string, group: GroupKey, name?: string) => string;
   updateLine: (monthKey: string, lineId: string, patch: Partial<BudgetLine>) => void;
   removeLine: (monthKey: string, lineId: string) => void;
@@ -34,6 +36,8 @@ interface Actions {
   setProfileName: (name: string) => void;
   setPlan: (plan: UserPlan, days?: number) => void;
   redeemCode: (code: string) => boolean;
+  awardTrophy: (kind: TrophyKind, label: string, contextId?: string, monthKey?: string) => Trophy | null;
+  checkMonthClose: (monthKey: string) => Trophy[];
   resetAll: () => void;
 }
 
@@ -44,6 +48,7 @@ const initialState: AppState = {
   months: {},
   shields: [],
   debts: [],
+  trophies: [],
 };
 
 const REDEEM_CODES = new Set(["CALMA2026", "FINANZAS30", "RUTACOMPLETA"]);
@@ -54,27 +59,92 @@ function previousMonthKey(monthKey: string): string {
   return monthKeyOf(d);
 }
 
+function trophyKey(kind: TrophyKind, contextId?: string, monthKey?: string) {
+  return `${kind}::${contextId ?? ""}::${monthKey ?? ""}`;
+}
+
+function maybeAward(
+  trophies: Trophy[],
+  kind: TrophyKind,
+  label: string,
+  contextId?: string,
+  monthKey?: string,
+): Trophy[] {
+  const key = trophyKey(kind, contextId, monthKey);
+  if (trophies.some((t) => trophyKey(t.kind, t.contextId, t.monthKey) === key)) return trophies;
+  return [
+    ...trophies,
+    {
+      id: uid(),
+      kind,
+      label,
+      earnedAt: new Date().toISOString(),
+      contextId,
+      monthKey,
+    },
+  ];
+}
+
+function maybeAwardShieldTrophy(trophies: Trophy[], reached: 0 | 1 | 2 | 3): Trophy[] {
+  let out = trophies;
+  if (reached >= 1) out = maybeAward(out, "shield_l1", "Escudo Inicial completado", EMERGENCY_FUND_ID);
+  if (reached >= 2) out = maybeAward(out, "shield_l2", "Nivel 2: 1–3 meses de gastos", EMERGENCY_FUND_ID);
+  if (reached >= 3) out = maybeAward(out, "shield_l3", "Nivel 3: 3–6 meses de gastos", EMERGENCY_FUND_ID);
+  return out;
+}
+
 function syncLinkedLines(state: AppState, monthKey: string): MonthBudget {
   const month = state.months[monthKey] ?? emptyMonth(monthKey);
   const lines = [...month.lines];
+  // Dedupe linked lines defensively
+  const seenShield = new Set<string>();
+  const seenDebt = new Set<string>();
+  const cleaned: BudgetLine[] = [];
+  for (const l of lines) {
+    if (l.linkedShieldId) {
+      if (seenShield.has(l.linkedShieldId)) continue;
+      seenShield.add(l.linkedShieldId);
+    }
+    if (l.linkedDebtId) {
+      if (seenDebt.has(l.linkedDebtId)) continue;
+      seenDebt.add(l.linkedDebtId);
+    }
+    cleaned.push(l);
+  }
   for (const shield of state.shields) {
-    if (!lines.find((l) => l.linkedShieldId === shield.id)) {
-      lines.push({
+    if (!seenShield.has(shield.id)) {
+      cleaned.push({
         id: uid(), group: "future", name: shield.name,
         planned: 0, real: 0, linkedShieldId: shield.id,
+        permanent: shield.id === EMERGENCY_FUND_ID,
       });
+      seenShield.add(shield.id);
+    } else if (shield.id === EMERGENCY_FUND_ID) {
+      // Ensure permanence flag on existing line
+      const idx = cleaned.findIndex((l) => l.linkedShieldId === EMERGENCY_FUND_ID);
+      if (idx >= 0 && !cleaned[idx].permanent) cleaned[idx] = { ...cleaned[idx], permanent: true };
     }
   }
-  for (const debt of state.debts) {
-    if (debt.paid) continue;
-    if (!lines.find((l) => l.linkedDebtId === debt.id)) {
-      lines.push({
+  // Snowball order: active debts sorted by current balance asc
+  const activeDebts = state.debts.filter((d) => !d.paid).sort((a, b) => a.currentBalance - b.currentBalance);
+  for (const debt of activeDebts) {
+    if (!seenDebt.has(debt.id)) {
+      cleaned.push({
         id: uid(), group: "debts", name: debt.name,
         planned: debt.minimumPayment, real: 0, linkedDebtId: debt.id,
       });
+      seenDebt.add(debt.id);
     }
   }
-  return { monthKey, lines };
+  // Reorder debt lines per snowball
+  const order = new Map(activeDebts.map((d, i) => [d.id, i]));
+  cleaned.sort((a, b) => {
+    if (a.linkedDebtId && b.linkedDebtId) {
+      return (order.get(a.linkedDebtId) ?? 99) - (order.get(b.linkedDebtId) ?? 99);
+    }
+    return 0;
+  });
+  return { monthKey, lines: cleaned };
 }
 
 export const useApp = create<Store>()(
@@ -96,6 +166,25 @@ export const useApp = create<Store>()(
         const fresh = syncLinkedLines(state, monthKey);
         set({ months: { ...state.months, [monthKey]: fresh } });
         return fresh;
+      },
+
+      ensureEmergencyFund: () => {
+        const s = get();
+        if (s.shields.find((sh) => sh.id === EMERGENCY_FUND_ID)) return;
+        set({
+          shields: [
+            ...s.shields,
+            {
+              id: EMERGENCY_FUND_ID,
+              name: "Fondo de Emergencia",
+              kind: "emergency",
+              goal: 1000,
+              balance: 0,
+              createdAt: new Date().toISOString(),
+              history: [],
+            },
+          ],
+        });
       },
 
       addLine: (monthKey, group, name = "") => {
@@ -120,6 +209,7 @@ export const useApp = create<Store>()(
           const lines = month.lines.map((l) => (l.id === lineId ? { ...l, ...patch } : l));
           let shields = s.shields;
           let debts = s.debts;
+          let trophies = s.trophies;
 
           if (before && patch.real !== undefined && patch.real !== before.real) {
             const delta = patch.real - before.real;
@@ -136,12 +226,24 @@ export const useApp = create<Store>()(
                     }
                   : sh,
               );
+              if (before.linkedShieldId === EMERGENCY_FUND_ID) {
+                const muros = muros4Total(month);
+                const levels = emergencyLevels(muros);
+                const fund = shields.find((sh) => sh.id === EMERGENCY_FUND_ID);
+                if (fund) {
+                  const reached = emergencyLevelReached(fund.balance, levels);
+                  trophies = maybeAwardShieldTrophy(trophies, reached);
+                }
+              }
             }
             if (before.linkedDebtId) {
               debts = debts.map((dbt) => {
                 if (dbt.id !== before.linkedDebtId) return dbt;
                 const newBal = Math.max(0, dbt.currentBalance - delta);
                 const justPaid = !dbt.paid && newBal === 0 && delta > 0;
+                if (justPaid) {
+                  trophies = maybeAward(trophies, "debt_paid", `Liberaste: ${dbt.name}`, dbt.id);
+                }
                 return {
                   ...dbt,
                   currentBalance: newBal,
@@ -151,7 +253,7 @@ export const useApp = create<Store>()(
               });
             }
           }
-          return { months: { ...s.months, [monthKey]: { ...month, lines } }, shields, debts };
+          return { months: { ...s.months, [monthKey]: { ...month, lines } }, shields, debts, trophies };
         });
       },
 
@@ -159,6 +261,8 @@ export const useApp = create<Store>()(
         set((s) => {
           const month = s.months[monthKey];
           if (!month) return s;
+          const target = month.lines.find((l) => l.id === lineId);
+          if (target?.permanent) return s; // protect permanent (Emergency Fund) line
           return { months: { ...s.months, [monthKey]: { ...month, lines: month.lines.filter((l) => l.id !== lineId) } } };
         });
       },
@@ -186,8 +290,8 @@ export const useApp = create<Store>()(
       removeShield: (id) => set((s) => ({ shields: s.shields.filter((sh) => sh.id !== id) })),
 
       shieldDeposit: (id, amount, note, date) =>
-        set((s) => ({
-          shields: s.shields.map((sh) =>
+        set((s) => {
+          const shields = s.shields.map((sh) =>
             sh.id === id
               ? {
                   ...sh,
@@ -195,8 +299,20 @@ export const useApp = create<Store>()(
                   history: [...sh.history, { id: uid(), date: date ?? new Date().toISOString(), type: "deposit", amount, note } as ShieldTx],
                 }
               : sh,
-          ),
-        })),
+          );
+          let trophies = s.trophies;
+          if (id === EMERGENCY_FUND_ID) {
+            const monthKey = currentMonthKey();
+            const month = s.months[monthKey] ?? emptyMonth(monthKey);
+            const muros = muros4Total(month);
+            const fund = shields.find((sh) => sh.id === EMERGENCY_FUND_ID);
+            if (fund) {
+              const reached = emergencyLevelReached(fund.balance, emergencyLevels(muros));
+              trophies = maybeAwardShieldTrophy(trophies, reached);
+            }
+          }
+          return { shields, trophies };
+        }),
 
       shieldWithdraw: (id, amount, note, date) =>
         set((s) => ({
@@ -250,11 +366,12 @@ export const useApp = create<Store>()(
 
       registerDebtPayment: (id, amount, date, note) => {
         let paidOff = false;
-        set((s) => ({
-          debts: s.debts.map((d) => {
+        let paidName = "";
+        set((s) => {
+          const debts = s.debts.map((d) => {
             if (d.id !== id) return d;
             const newBal = Math.max(0, d.currentBalance - amount);
-            if (newBal === 0 && !d.paid) paidOff = true;
+            if (newBal === 0 && !d.paid) { paidOff = true; paidName = d.name; }
             return {
               ...d,
               currentBalance: newBal,
@@ -265,9 +382,52 @@ export const useApp = create<Store>()(
                 { id: uid(), date: date ?? new Date().toISOString(), delta: -amount, note: note ?? "Pago" } as DebtAdjustment,
               ],
             };
-          }),
-        }));
+          });
+          const trophies = paidOff
+            ? maybeAward(s.trophies, "debt_paid", `Liberaste: ${paidName}`, id)
+            : s.trophies;
+          return { debts, trophies };
+        });
         return paidOff;
+      },
+
+      awardTrophy: (kind, label, contextId, monthKey) => {
+        const s = get();
+        const next = maybeAward(s.trophies, kind, label, contextId, monthKey);
+        if (next === s.trophies) return null;
+        const newTrophy = next[next.length - 1];
+        set({ trophies: next });
+        return newTrophy;
+      },
+
+      checkMonthClose: (monthKey) => {
+        const s = get();
+        const month = s.months[monthKey];
+        if (!month) return [];
+        const t = groupTotals(month.lines);
+        const earned: Trophy[] = [];
+        const expensesGroups = ["muros", "debts", "generosity", "lifestyle", "future"] as const;
+        const plannedExp = expensesGroups.reduce((sum, g) => sum + t[g].planned, 0);
+        const realExp = expensesGroups.reduce((sum, g) => sum + t[g].real, 0);
+        let trophies = s.trophies;
+        if (plannedExp > 0 && realExp > 0 && realExp < plannedExp) {
+          const before = trophies;
+          trophies = maybeAward(trophies, "under_budget", `Gastaste menos en ${monthKey}`, undefined, monthKey);
+          if (trophies !== before) earned.push(trophies[trophies.length - 1]);
+        }
+        const [y, m] = monthKey.split("-").map(Number);
+        const prevKey = `${m === 1 ? y - 1 : y}-${String(m === 1 ? 12 : m - 1).padStart(2, "0")}`;
+        const prev = s.months[prevKey];
+        if (prev) {
+          const tp = groupTotals(prev.lines);
+          if (t.income.real > 0 && tp.income.real > 0 && t.income.real > tp.income.real) {
+            const before = trophies;
+            trophies = maybeAward(trophies, "income_growth", `Ingresos al alza vs ${prevKey}`, undefined, monthKey);
+            if (trophies !== before) earned.push(trophies[trophies.length - 1]);
+          }
+        }
+        if (trophies !== s.trophies) set({ trophies });
+        return earned;
       },
 
       setProfileName: (name) => set((s) => ({ profile: { ...s.profile, name } })),

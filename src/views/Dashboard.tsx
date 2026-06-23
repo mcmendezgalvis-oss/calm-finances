@@ -7,10 +7,13 @@ import {
 import { FileDown } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PremiumGate } from "@/components/PremiumGate";
-import { useApp, currentMonthKey, isPremiumNow, monthKeyOf } from "@/store/useApp";
+import { useApp, isPremiumNow, monthKeyOf } from "@/store/useApp";
 import { useI18n } from "@/i18n/I18nProvider";
 import { groupTotals, fmt } from "@/lib/finance";
 import { generateMonthReport, generateYearReport } from "@/lib/pdf";
+import { DashboardPeriodSelector, type DashboardPeriod } from "@/components/DashboardPeriodSelector";
+import { HScrollChart } from "@/components/HScrollChart";
+import { celebrateTrophy } from "@/lib/trophies";
 
 const COLORS = ["#6b8e6b", "#c48a7a", "#8c736d", "#b6cbb5", "#e8b7b1", "#94b194"];
 
@@ -19,31 +22,43 @@ export function Dashboard() {
   const state = useApp();
   const profile = state.profile;
   const ensureMonth = state.ensureMonth;
-  const [monthKey] = useState(currentMonthKey());
-  const [periodMode, setPeriodMode] = useState<"month" | "year">("month");
+  const checkMonthClose = state.checkMonthClose;
+  const today = new Date();
+  const [period, setPeriod] = useState<DashboardPeriod>({
+    year: today.getFullYear(),
+    month: today.getMonth() + 1,
+    mode: "month",
+  });
+  const monthKey = `${period.year}-${String(period.month).padStart(2, "0")}`;
 
   useEffect(() => { ensureMonth(monthKey); }, [monthKey, ensureMonth]);
+
+  // Awarding month-close trophies when viewing past months with data
+  useEffect(() => {
+    const earned = checkMonthClose(monthKey);
+    earned.forEach((tr) => celebrateTrophy(tr, lang));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monthKey]);
 
   const month = state.months[monthKey] ?? { monthKey, lines: [] };
   const totals = groupTotals(month.lines);
   const currency = profile.currency;
 
   const donutData = useMemo(() => {
-    const arr = (["muros","debts","generosity","lifestyle","future"] as const)
+    return (["muros","debts","generosity","lifestyle","future"] as const)
       .map((g, i) => ({ name: t.budget.groups[g], value: totals[g].real, color: COLORS[i] }))
       .filter((d) => d.value > 0);
-    return arr;
   }, [totals, t]);
 
   const evolutionData = useMemo(() => {
     const data: { month: string; income: number; expenses: number }[] = [];
-    const today = new Date();
-    const months = periodMode === "year" ? 12 : 6;
-    for (let i = months - 1; i >= 0; i--) {
-      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    const ranges: Date[] = period.mode === "year"
+      ? Array.from({ length: 12 }, (_, m) => new Date(period.year, m, 1))
+      : Array.from({ length: 6 }, (_, i) => new Date(period.year, period.month - 1 - (5 - i), 1));
+    for (const d of ranges) {
       const key = monthKeyOf(d);
-      const m = state.months[key];
-      const t2 = m ? groupTotals(m.lines) : null;
+      const mb = state.months[key];
+      const t2 = mb ? groupTotals(mb.lines) : null;
       data.push({
         month: d.toLocaleDateString(lang === "es" ? "es-ES" : "en-US", { month: "short" }),
         income: t2?.income.real || 0,
@@ -51,7 +66,7 @@ export function Dashboard() {
       });
     }
     return data;
-  }, [state.months, lang, periodMode]);
+  }, [state.months, lang, period]);
 
   const debtBars = useMemo(() => {
     const active = state.debts.filter((d) => !d.paid).sort((a, b) => a.currentBalance - b.currentBalance);
@@ -65,13 +80,12 @@ export function Dashboard() {
   }, [state.debts, currency]);
 
   const shieldsGrowthData = useMemo(() => {
-    // Sum balances now; approximate growth over time by bucketing tx history
-    const months = periodMode === "year" ? 12 : 6;
+    const ranges: Date[] = period.mode === "year"
+      ? Array.from({ length: 12 }, (_, m) => new Date(period.year, m, 1))
+      : Array.from({ length: 6 }, (_, i) => new Date(period.year, period.month - 1 - (5 - i), 1));
     const buckets: { month: string; total: number }[] = [];
-    const today = new Date();
-    for (let i = months - 1; i >= 0; i--) {
-      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-      const end = new Date(today.getFullYear(), today.getMonth() - i + 1, 0).getTime();
+    for (const d of ranges) {
+      const end = new Date(d.getFullYear(), d.getMonth() + 1, 0).getTime();
       const total = state.shields.reduce((sum, s) => {
         let bal = 0;
         for (const h of s.history) {
@@ -86,29 +100,28 @@ export function Dashboard() {
         total,
       });
     }
-    // If no history, fallback to current snapshot at the last bucket
     if (buckets.every((b) => b.total === 0)) {
       const now = state.shields.reduce((s, sh) => s + sh.balance, 0);
       if (buckets.length) buckets[buckets.length - 1].total = now;
     }
     return buckets;
-  }, [state.shields, lang, periodMode]);
+  }, [state.shields, lang, period]);
 
   const premium = isPremiumNow(profile);
   const greeting = profile.name ? `${t.dashboard.greeting}, ${profile.name}.` : `${t.dashboard.greeting}.`;
 
+  const evoMinWidth = Math.max(evolutionData.length * 70, 360);
+  const shieldMinWidth = Math.max(shieldsGrowthData.length * 70, 360);
+  const debtMinHeight = Math.max(220, debtBars.length * 44);
+
   return (
     <AppShell>
-      <header className="mb-10 flex flex-wrap items-end justify-between gap-4">
+      <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-serif text-5xl text-wine">{greeting}</h1>
           <p className="text-sm text-sage-600 italic mt-2">{t.tagline}</p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
-          <div className="inline-flex rounded-full bg-sage-50 p-1 border border-sage-200 text-xs">
-            <button onClick={() => setPeriodMode("month")} className={`px-3 py-1.5 rounded-full ${periodMode === "month" ? "bg-wine text-white" : "text-sage-600"}`}>{t.reports.period.month}</button>
-            <button onClick={() => setPeriodMode("year")} className={`px-3 py-1.5 rounded-full ${periodMode === "year" ? "bg-wine text-white" : "text-sage-600"}`}>{t.reports.period.year}</button>
-          </div>
           <button
             disabled={!premium}
             onClick={() => generateMonthReport(state, monthKey)}
@@ -118,13 +131,17 @@ export function Dashboard() {
           </button>
           <button
             disabled={!premium}
-            onClick={() => generateYearReport(state, new Date().getFullYear())}
+            onClick={() => generateYearReport(state, period.year)}
             className="inline-flex items-center gap-2 bg-white border border-sage-200 text-sage-700 text-sm px-4 py-2.5 rounded-full hover:bg-sage-50 transition-colors disabled:opacity-40"
           >
             <FileDown className="size-4" /> {t.dashboard.reportYear}
           </button>
         </div>
       </header>
+
+      <div className="sticky top-0 z-20 -mx-5 md:-mx-10 px-5 md:px-10 py-3 mb-6 bg-sage-50/90 backdrop-blur border-y border-sage-100">
+        <DashboardPeriodSelector value={period} onChange={setPeriod} />
+      </div>
 
       {/* Always-free donut */}
       <section className="bg-white border border-sage-100 rounded-3xl p-6 mb-6">
@@ -139,10 +156,7 @@ export function Dashboard() {
           <div className="h-64">
             <ResponsiveContainer>
               <PieChart>
-                <Pie
-                  data={donutData} dataKey="value" nameKey="name"
-                  innerRadius={60} outerRadius={95} paddingAngle={2}
-                >
+                <Pie data={donutData} dataKey="value" nameKey="name" innerRadius={60} outerRadius={95} paddingAngle={2}>
                   {donutData.map((d, i) => <Cell key={i} fill={d.color} />)}
                 </Pie>
                 <Tooltip formatter={(v: number) => fmt(v, currency)} />
@@ -158,19 +172,19 @@ export function Dashboard() {
             <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-wine mb-4">
               {t.dashboard.evolution}
             </h2>
-            <div className="h-56">
-              <ResponsiveContainer>
+            <HScrollChart minWidth={evoMinWidth} height={240}>
+              <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={evolutionData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e8f0e8" />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#6b8e6b" }} />
-                  <YAxis tick={{ fontSize: 11, fill: "#6b8e6b" }} />
+                  <YAxis tick={{ fontSize: 11, fill: "#6b8e6b" }} width={48} />
                   <Tooltip formatter={(v: number) => fmt(v, currency)} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   <Bar dataKey="income" name={t.dashboard.income} fill="#6b8e6b" radius={[6,6,0,0]} />
                   <Bar dataKey="expenses" name={t.dashboard.expenses} fill="#c48a7a" radius={[6,6,0,0]} />
                 </BarChart>
               </ResponsiveContainer>
-            </div>
+            </HScrollChart>
           </section>
 
           <section className="bg-white border border-sage-100 rounded-3xl p-6">
@@ -180,8 +194,8 @@ export function Dashboard() {
             {debtBars.length === 0 ? (
               <p className="text-sm text-sage-500 italic py-12 text-center">{t.dashboard.noHistoryYet}</p>
             ) : (
-              <div style={{ height: Math.max(180, debtBars.length * 44) }}>
-                <ResponsiveContainer>
+              <HScrollChart minWidth={420} height={debtMinHeight}>
+                <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={debtBars} layout="vertical" margin={{ left: 16, right: 96 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e8f0e8" horizontal={false} />
                     <XAxis type="number" tick={{ fontSize: 11, fill: "#6b8e6b" }} />
@@ -192,7 +206,7 @@ export function Dashboard() {
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
-              </div>
+              </HScrollChart>
             )}
           </section>
 
@@ -200,8 +214,8 @@ export function Dashboard() {
             <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-wine mb-4">
               {t.dashboard.shieldsGrowth}
             </h2>
-            <div className="h-56">
-              <ResponsiveContainer>
+            <HScrollChart minWidth={shieldMinWidth} height={240}>
+              <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={shieldsGrowthData}>
                   <defs>
                     <linearGradient id="shieldGrad" x1="0" y1="0" x2="0" y2="1">
@@ -211,12 +225,12 @@ export function Dashboard() {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e8f0e8" />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#6b8e6b" }} />
-                  <YAxis tick={{ fontSize: 11, fill: "#6b8e6b" }} />
+                  <YAxis tick={{ fontSize: 11, fill: "#6b8e6b" }} width={48} />
                   <Tooltip formatter={(v: number) => fmt(v, currency)} />
                   <Area dataKey="total" stroke="#6b8e6b" strokeWidth={2} fill="url(#shieldGrad)" type="monotone" />
                 </AreaChart>
               </ResponsiveContainer>
-            </div>
+            </HScrollChart>
           </section>
         </div>
       </PremiumGate>

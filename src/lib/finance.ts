@@ -49,3 +49,30 @@ export function muros4Total(month: MonthBudget) {
     .filter((l) => l.group === "muros")
     .reduce((s, l) => s + (l.real || l.planned || 0), 0);
 }
+
+export const EMERGENCY_FUND_ID = "emergency-fund";
+
+export interface EmergencyLevels {
+  l1: number;
+  l2Min: number;
+  l2Max: number;
+  l3Min: number;
+  l3Max: number;
+}
+
+export function emergencyLevels(muros: number): EmergencyLevels {
+  return {
+    l1: 1000,
+    l2Min: muros * 1,
+    l2Max: muros * 3,
+    l3Min: muros * 3,
+    l3Max: muros * 6,
+  };
+}
+
+export function emergencyLevelReached(balance: number, levels: EmergencyLevels): 0 | 1 | 2 | 3 {
+  if (balance >= levels.l3Max && levels.l3Max > 0) return 3;
+  if (balance >= levels.l2Max && levels.l2Max > 0) return 2;
+  if (balance >= levels.l1) return 1;
+  return 0;
+}

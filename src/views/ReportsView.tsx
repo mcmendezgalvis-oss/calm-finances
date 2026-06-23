@@ -5,6 +5,7 @@ import { PremiumGate } from "@/components/PremiumGate";
 import { PeriodSelector, type PeriodValue } from "@/components/PeriodSelector";
 import { useApp } from "@/store/useApp";
 import { useI18n } from "@/i18n/I18nProvider";
+import { groupTotals, fmt } from "@/lib/finance";
 import {
   generateBudgetVsRealReport,
   generateDebtDetailReport,
@@ -46,6 +47,59 @@ export function ReportsView() {
     if (kind === "debt" && debtId) generateDebtDetailReport(state, debtId, from, to, label);
     if (kind === "shield" && shieldId) generateShieldMovementsReport(state, shieldId, from, to, label);
   };
+
+  const { from, to } = periodToRange(period);
+  const currency = state.profile.currency;
+
+  // Build preview table per report type, including TOTAL row.
+  const preview = (() => {
+    if (kind === "budget") {
+      const keys: string[] = [];
+      const start = new Date(from.getFullYear(), from.getMonth(), 1);
+      const end = new Date(to.getFullYear(), to.getMonth(), 1);
+      while (start <= end) {
+        keys.push(`${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}`);
+        start.setMonth(start.getMonth() + 1);
+      }
+      const rows: { label: string; planned: number; real: number }[] = [];
+      let tp = 0, tr = 0;
+      for (const k of keys) {
+        const m = state.months[k];
+        if (!m) continue;
+        const g = groupTotals(m.lines);
+        const planned = (["muros","debts","generosity","lifestyle","future"] as const).reduce((s, k2) => s + g[k2].planned, 0);
+        const real = (["muros","debts","generosity","lifestyle","future"] as const).reduce((s, k2) => s + g[k2].real, 0);
+        rows.push({ label: k, planned, real });
+        tp += planned; tr += real;
+      }
+      return { cols: ["Mes", "Plan", "Real"], rows: rows.map((r) => [r.label, fmt(r.planned, currency), fmt(r.real, currency)]), totals: ["TOTAL", fmt(tp, currency), fmt(tr, currency)] };
+    }
+    if (kind === "debt" && debtId) {
+      const debt = state.debts.find((d) => d.id === debtId);
+      if (!debt) return null;
+      const tFrom = from.getTime(); const tTo = to.getTime() + 86400_000;
+      const adj = debt.adjustments.filter((a) => { const ts = new Date(a.date).getTime(); return ts >= tFrom && ts <= tTo; });
+      const total = adj.reduce((s, a) => s + a.delta, 0);
+      return {
+        cols: ["Fecha", "Tipo", "Monto"],
+        rows: adj.map((a) => [new Date(a.date).toLocaleDateString(), a.delta < 0 ? "Pago" : "Ajuste", (a.delta >= 0 ? "+" : "") + fmt(a.delta, currency)]),
+        totals: ["TOTAL", "", (total >= 0 ? "+" : "") + fmt(total, currency)],
+      };
+    }
+    if (kind === "shield" && shieldId) {
+      const sh = state.shields.find((s) => s.id === shieldId);
+      if (!sh) return null;
+      const tFrom = from.getTime(); const tTo = to.getTime() + 86400_000;
+      const hist = sh.history.filter((h) => { const ts = new Date(h.date).getTime(); return ts >= tFrom && ts <= tTo; });
+      const total = hist.reduce((s, h) => s + (h.type === "deposit" ? h.amount : -h.amount), 0);
+      return {
+        cols: ["Fecha", "Tipo", "Monto"],
+        rows: hist.map((h) => [new Date(h.date).toLocaleDateString(), h.type === "deposit" ? "Aporte" : "Retiro", (h.type === "deposit" ? "+" : "−") + fmt(h.amount, currency)]),
+        totals: ["TOTAL", "", (total >= 0 ? "+" : "") + fmt(total, currency)],
+      };
+    }
+    return null;
+  })();
 
   const reportTypes: { key: ReportKind; label: string }[] = [
     { key: "budget", label: t.reports.typeBudget },
@@ -122,6 +176,38 @@ export function ReportsView() {
             <FileDown className="size-4" /> {t.reports.download}
           </button>
         </div>
+
+        {preview && (
+          <div className="bg-white border border-sage-100 rounded-3xl p-6 mt-6 max-w-3xl overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[10px] uppercase tracking-widest text-wine border-b border-wine/15">
+                  {preview.cols.map((c) => (
+                    <th key={c} className="text-left font-semibold py-2 px-2">{c}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {preview.rows.length === 0 ? (
+                  <tr><td colSpan={preview.cols.length} className="text-center text-sage-500 italic py-6">{t.reports.noData}</td></tr>
+                ) : preview.rows.map((r, i) => (
+                  <tr key={i} className="border-b border-sage-50">
+                    {r.map((c, j) => <td key={j} className="py-2 px-2 tabular-nums text-sage-700">{c}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+              {preview.rows.length > 0 && (
+                <tfoot>
+                  <tr className="font-bold bg-sage-50 border-t-2 border-wine">
+                    {preview.totals.map((c, j) => (
+                      <td key={j} className="py-2 px-2 tabular-nums text-wine">{c}</td>
+                    ))}
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        )}
       </PremiumGate>
     </AppShell>
   );
