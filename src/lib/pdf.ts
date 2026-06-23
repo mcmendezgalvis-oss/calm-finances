@@ -222,16 +222,23 @@ export function generateBudgetVsRealReport(state: AppState, from: Date, to: Date
   header(doc, "Presupuesto vs Real", label);
 
   const keys = monthsInRange(from, to);
+  const currKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
   const rows: (string | number)[][] = [];
   let totPlanned = 0, totReal = 0, totDiff = 0;
   for (const key of keys) {
     const m = state.months[key];
-    if (!m) continue;
+    const isFuture = key > currKey;
+    const monthLabel = isFuture ? `${key} (proyección)` : key;
+    if (!m) {
+      if (isFuture) rows.push([monthLabel, "—", fmt(0, currency), fmt(0, currency), fmt(0, currency)]);
+      continue;
+    }
     const t = groupTotals(m.lines);
     for (const g of GROUP_ORDER) {
-      const diff = g === "income" ? t[g].real - t[g].planned : t[g].planned - t[g].real;
-      rows.push([key, g, fmt(t[g].planned, currency), fmt(t[g].real, currency), (diff >= 0 ? "+" : "") + fmt(diff, currency)]);
-      totPlanned += t[g].planned; totReal += t[g].real; totDiff += diff;
+      const realVal = isFuture ? 0 : t[g].real;
+      const diff = g === "income" ? realVal - t[g].planned : t[g].planned - realVal;
+      rows.push([monthLabel, g, fmt(t[g].planned, currency), fmt(realVal, currency), (diff >= 0 ? "+" : "") + fmt(diff, currency)]);
+      totPlanned += t[g].planned; totReal += realVal; totDiff += diff;
     }
   }
   if (rows.length === 0) rows.push(["—", "Sin datos", "", "", ""]);
@@ -267,21 +274,25 @@ export function generateDebtDetailReport(state: AppState, debtId: string, from: 
 
   const tFrom = from.getTime();
   const tTo = to.getTime() + 86400_000;
-  const rows = debt.adjustments
-    .filter((a) => {
-      const ts = new Date(a.date).getTime();
-      return ts >= tFrom && ts <= tTo;
-    })
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .map((a) => [
-      new Date(a.date).toLocaleDateString(),
-      a.delta < 0 ? "Pago / abono" : "Ajuste banco",
-      (a.delta >= 0 ? "+" : "") + fmt(a.delta, currency),
-      a.note ?? "",
-    ]);
-  const totalDelta = debt.adjustments
-    .filter((a) => { const ts = new Date(a.date).getTime(); return ts >= tFrom && ts <= tTo; })
-    .reduce((s, a) => s + a.delta, 0);
+  type Mv = { ts: number; date: string; type: string; signed: number; note: string };
+  const mvs: Mv[] = [];
+  for (const a of debt.adjustments) {
+    const ts = new Date(a.date).getTime();
+    mvs.push({ ts, date: new Date(a.date).toLocaleDateString(), type: a.delta < 0 ? "Pago / abono" : "Ajuste banco", signed: a.delta, note: a.note ?? "" });
+  }
+  for (const [k, mo] of Object.entries(state.months)) {
+    for (const l of mo.lines) {
+      if (l.linkedDebtId !== debtId) continue;
+      const real = l.real || 0;
+      if (real <= 0) continue;
+      const [y, mm] = k.split("-").map(Number);
+      const d = new Date(y, mm, 0);
+      mvs.push({ ts: d.getTime(), date: d.toLocaleDateString(), type: "Abono desde presupuesto", signed: -real, note: `Mes ${k}` });
+    }
+  }
+  const filtered = mvs.filter((m) => m.ts >= tFrom && m.ts <= tTo).sort((a, b) => a.ts - b.ts);
+  const rows: (string | number | Record<string, unknown>)[][] = filtered.map((m) => [m.date, m.type, (m.signed >= 0 ? "+" : "") + fmt(m.signed, currency), m.note]);
+  const totalDelta = filtered.reduce((s, m) => s + m.signed, 0);
   if (rows.length === 0) rows.push(["—", "Sin movimientos", "", ""]);
   else rows.push([
     { content: "TOTAL", styles: { fontStyle: "bold", fillColor: [232, 240, 232], textColor: [114, 47, 55] } } as never,
