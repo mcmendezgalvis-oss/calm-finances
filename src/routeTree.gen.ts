@@ -9,12 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ReportesRouteImport } from './routes/reportes'
 import { Route as PresupuestoRouteImport } from './routes/presupuesto'
 import { Route as EscudosRouteImport } from './routes/escudos'
 import { Route as DeudasRouteImport } from './routes/deudas'
 import { Route as AjustesRouteImport } from './routes/ajustes'
 import { Route as IndexRouteImport } from './routes/index'
 
+const ReportesRoute = ReportesRouteImport.update({
+  id: '/reportes',
+  path: '/reportes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PresupuestoRoute = PresupuestoRouteImport.update({
   id: '/presupuesto',
   path: '/presupuesto',
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/deudas': typeof DeudasRoute
   '/escudos': typeof EscudosRoute
   '/presupuesto': typeof PresupuestoRoute
+  '/reportes': typeof ReportesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/deudas': typeof DeudasRoute
   '/escudos': typeof EscudosRoute
   '/presupuesto': typeof PresupuestoRoute
+  '/reportes': typeof ReportesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +70,27 @@ export interface FileRoutesById {
   '/deudas': typeof DeudasRoute
   '/escudos': typeof EscudosRoute
   '/presupuesto': typeof PresupuestoRoute
+  '/reportes': typeof ReportesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/ajustes' | '/deudas' | '/escudos' | '/presupuesto'
+  fullPaths:
+    | '/'
+    | '/ajustes'
+    | '/deudas'
+    | '/escudos'
+    | '/presupuesto'
+    | '/reportes'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/ajustes' | '/deudas' | '/escudos' | '/presupuesto'
-  id: '__root__' | '/' | '/ajustes' | '/deudas' | '/escudos' | '/presupuesto'
+  to: '/' | '/ajustes' | '/deudas' | '/escudos' | '/presupuesto' | '/reportes'
+  id:
+    | '__root__'
+    | '/'
+    | '/ajustes'
+    | '/deudas'
+    | '/escudos'
+    | '/presupuesto'
+    | '/reportes'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,10 +99,18 @@ export interface RootRouteChildren {
   DeudasRoute: typeof DeudasRoute
   EscudosRoute: typeof EscudosRoute
   PresupuestoRoute: typeof PresupuestoRoute
+  ReportesRoute: typeof ReportesRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/reportes': {
+      id: '/reportes'
+      path: '/reportes'
+      fullPath: '/reportes'
+      preLoaderRoute: typeof ReportesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/presupuesto': {
       id: '/presupuesto'
       path: '/presupuesto'
@@ -125,6 +155,7 @@ const rootRouteChildren: RootRouteChildren = {
   DeudasRoute: DeudasRoute,
   EscudosRoute: EscudosRoute,
   PresupuestoRoute: PresupuestoRoute,
+  ReportesRoute: ReportesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
