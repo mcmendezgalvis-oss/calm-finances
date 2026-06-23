@@ -419,17 +419,24 @@ export const useApp = create<Store>()(
         })),
 
       addDebt: ({ name, initialBalance, minimumPayment }) => {
+        const trimmed = name.trim();
+        if (!trimmed) return null;
+        const s = get();
+        const dup = s.debts.some(
+          (d) => d.name.trim().toLowerCase() === trimmed.toLowerCase(),
+        );
+        if (dup) return null;
         const id = uid();
-        set((s) => ({
+        set({
           debts: [
             ...s.debts,
             {
-              id, name, initialBalance, minimumPayment,
+              id, name: trimmed, initialBalance, minimumPayment,
               currentBalance: initialBalance, paid: false,
               createdAt: new Date().toISOString(), adjustments: [],
             },
           ],
-        }));
+        });
         return id;
       },
 
@@ -541,6 +548,111 @@ export const useApp = create<Store>()(
       },
 
       resetAll: () => set({ ...initialState }),
+
+      closeMonth: (monthKey, allocation) => {
+        const s = get();
+        const month = s.months[monthKey];
+        if (!month) return { ok: false, reason: "no-month" };
+        if (month.closed) return { ok: false, reason: "already-closed" };
+        const closedAt = new Date().toISOString();
+        let months = { ...s.months };
+        let surplusCarryForwardId: string | undefined = undefined;
+        let shields = s.shields;
+        let debts = s.debts;
+
+        if (allocation.type === "carry" && allocation.amount > 0) {
+          const nKey = nextMonthKey(monthKey);
+          const next = months[nKey] ?? emptyMonth(nKey);
+          const lineId = uid();
+          surplusCarryForwardId = lineId;
+          months[nKey] = {
+            ...next,
+            lines: [
+              ...next.lines,
+              { id: lineId, group: "income", name: "Sobrante mes anterior", planned: allocation.amount, real: allocation.amount },
+            ],
+          };
+        } else if (allocation.type === "debt" && allocation.amount > 0) {
+          debts = debts.map((d) => {
+            if (d.id !== allocation.debtId) return d;
+            const newBal = Math.max(0, d.currentBalance - allocation.amount);
+            return {
+              ...d,
+              currentBalance: newBal,
+              paid: newBal === 0 || d.paid,
+              paidAt: newBal === 0 && !d.paid ? closedAt : d.paidAt,
+              adjustments: [
+                ...d.adjustments,
+                { id: uid(), date: closedAt, delta: -allocation.amount, note: "Sobrante de cierre de mes" } as DebtAdjustment,
+              ],
+            };
+          });
+        } else if (allocation.type === "shield" && allocation.amount > 0) {
+          shields = shields.map((sh) =>
+            sh.id === allocation.shieldId
+              ? {
+                  ...sh,
+                  balance: sh.balance + allocation.amount,
+                  history: [...sh.history, { id: uid(), date: closedAt, type: "deposit", amount: allocation.amount, note: "Sobrante de cierre de mes" } as ShieldTx],
+                }
+              : sh,
+          );
+        }
+
+        months[monthKey] = {
+          ...month,
+          closed: true,
+          closedAt,
+          snapshot: { lines: month.lines.map((l) => ({ ...l })), closedAt },
+          surplusCarryForwardId,
+        };
+        set({ months, shields, debts });
+        get().checkMonthClose(monthKey);
+        return { ok: true };
+      },
+
+      reopenMonth: (monthKey, mode) => {
+        const s = get();
+        const month = s.months[monthKey];
+        if (!month || !month.closed) return { ok: false, reason: "not-closed" };
+        let notice: string | undefined;
+        let months = { ...s.months };
+
+        // Carry-forward reversal
+        if (month.surplusCarryForwardId) {
+          const nKey = nextMonthKey(monthKey);
+          const next = months[nKey];
+          if (next) {
+            if (next.closed) {
+              return { ok: false, reason: "next-closed", notice: `No puedes reabrir este mes: el sobrante ya fue trasladado a ${nKey} y ese mes también está cerrado. Reabre primero el mes siguiente.` };
+            }
+            const carry = next.lines.find((l) => l.id === month.surplusCarryForwardId);
+            if (carry) {
+              if ((carry.real || 0) > 0 && carry.planned !== carry.real) {
+                // user edited 'real' manually — preserve real, zero planned
+                months[nKey] = {
+                  ...next,
+                  lines: next.lines.map((l) => (l.id === carry.id ? { ...l, planned: 0 } : l)),
+                };
+                notice = "El sobrante en el mes siguiente fue ajustado: se mantuvo el valor real que ya habías registrado.";
+              } else {
+                months[nKey] = { ...next, lines: next.lines.filter((l) => l.id !== carry.id) };
+              }
+            }
+          }
+        }
+
+        const reopened: MonthBudget = {
+          ...month,
+          closed: false,
+          closedAt: undefined,
+          surplusCarryForwardId: undefined,
+          lines: mode === "restore" && month.snapshot ? month.snapshot.lines.map((l) => ({ ...l })) : month.lines,
+        };
+        months[monthKey] = reopened;
+        set({ months });
+        return { ok: true, notice };
+      },
     }),
     { name: "fec.store.v1" },
   ),
