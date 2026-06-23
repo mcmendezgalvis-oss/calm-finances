@@ -1,19 +1,18 @@
-import { useEffect, useState } from "react";
+import { forwardRef, useEffect, useState } from "react";
 
 /** Spreadsheet-style numeric input. Editable, currency-formatted on blur. */
-export function NumberCell({
-  value,
-  onChange,
-  className = "",
-  tone = "default",
-  ariaLabel,
-}: {
+type NumberCellProps = {
   value: number;
   onChange: (n: number) => void;
   className?: string;
   tone?: "default" | "realidad";
   ariaLabel?: string;
-}) {
+};
+
+export const NumberCell = forwardRef<HTMLInputElement, NumberCellProps>(function NumberCell(
+  { value, onChange, className = "", tone = "default", ariaLabel },
+  ref,
+) {
   const [draft, setDraft] = useState(value === 0 ? "" : value.toString());
   const [focused, setFocused] = useState(false);
 
@@ -23,6 +22,7 @@ export function NumberCell({
 
   return (
     <input
+      ref={ref}
       inputMode="decimal"
       value={focused ? draft : value === 0 ? "" : value.toFixed(2)}
       aria-label={ariaLabel}
@@ -47,4 +47,4 @@ export function NumberCell({
       } min-w-[6.5rem] sm:min-w-[8rem] tabular-nums ${className}`}
     />
   );
-}
+});
