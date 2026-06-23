@@ -192,7 +192,7 @@ export const useApp = create<Store>()(
               ? {
                   ...sh,
                   balance: sh.balance + amount,
-                  history: [...sh.history, { id: uid(), date: new Date().toISOString(), type: "deposit", amount, note } as ShieldTx],
+                  history: [...sh.history, { id: uid(), date: (note?.startsWith("@date:") ? note.slice(6, 16) : new Date().toISOString()), type: "deposit", amount, note: note?.startsWith("@date:") ? note.slice(16) : note } as ShieldTx],
                 }
               : sh,
           ),
@@ -205,7 +205,7 @@ export const useApp = create<Store>()(
               ? {
                   ...sh,
                   balance: Math.max(0, sh.balance - amount),
-                  history: [...sh.history, { id: uid(), date: new Date().toISOString(), type: "withdraw", amount, note } as ShieldTx],
+                  history: [...sh.history, { id: uid(), date: (note?.startsWith("@date:") ? note.slice(6, 16) : new Date().toISOString()), type: "withdraw", amount, note: note?.startsWith("@date:") ? note.slice(16) : note } as ShieldTx],
                 }
               : sh,
           ),
@@ -248,14 +248,23 @@ export const useApp = create<Store>()(
           }),
         })),
 
-      registerDebtPayment: (id, amount) => {
+      registerDebtPayment: (id, amount, date, note) => {
         let paidOff = false;
         set((s) => ({
           debts: s.debts.map((d) => {
             if (d.id !== id) return d;
             const newBal = Math.max(0, d.currentBalance - amount);
             if (newBal === 0 && !d.paid) paidOff = true;
-            return { ...d, currentBalance: newBal, paid: newBal === 0, paidAt: newBal === 0 ? new Date().toISOString() : d.paidAt };
+            return {
+              ...d,
+              currentBalance: newBal,
+              paid: newBal === 0,
+              paidAt: newBal === 0 ? new Date().toISOString() : d.paidAt,
+              adjustments: [
+                ...d.adjustments,
+                { id: uid(), date: date ?? new Date().toISOString(), delta: -amount, note: note ?? "Pago" } as DebtAdjustment,
+              ],
+            };
           }),
         }));
         return paidOff;
