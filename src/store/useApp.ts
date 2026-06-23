@@ -445,39 +445,22 @@ export const useApp = create<Store>()(
       updateDebt: (id, patch) =>
         set((s) => ({ debts: s.debts.map((d) => (d.id === id ? { ...d, ...patch } : d)) })),
 
-      bankAdjust: (id, newBalance, note) =>
-        set((s) => ({
-          debts: s.debts.map((d) => {
-            if (d.id !== id) return d;
-            const delta = newBalance - d.currentBalance;
-            return {
-              ...d,
-              currentBalance: newBalance,
-              paid: newBalance === 0,
-              adjustments: [
-                ...d.adjustments,
-                { id: uid(), date: new Date().toISOString(), delta, note } as DebtAdjustment,
-              ],
-            };
-          }),
-        })),
-
-      registerDebtPayment: (id, amount, date, note) => {
+      bankAdjust: (id, newBalance, note) => {
         let paidOff = false;
         let paidName = "";
         set((s) => {
           const debts = s.debts.map((d) => {
             if (d.id !== id) return d;
-            const newBal = Math.max(0, d.currentBalance - amount);
-            if (newBal === 0 && !d.paid) { paidOff = true; paidName = d.name; }
+            const delta = newBalance - d.currentBalance;
+            if (newBalance === 0 && !d.paid) { paidOff = true; paidName = d.name; }
             return {
               ...d,
-              currentBalance: newBal,
-              paid: newBal === 0,
-              paidAt: newBal === 0 ? new Date().toISOString() : d.paidAt,
+              currentBalance: newBalance,
+              paid: newBalance === 0,
+              paidAt: newBalance === 0 && !d.paid ? new Date().toISOString() : d.paidAt,
               adjustments: [
                 ...d.adjustments,
-                { id: uid(), date: date ?? new Date().toISOString(), delta: -amount, note: note ?? "Pago" } as DebtAdjustment,
+                { id: uid(), date: new Date().toISOString(), delta, note } as DebtAdjustment,
               ],
             };
           });
@@ -486,7 +469,25 @@ export const useApp = create<Store>()(
             : s.trophies;
           return { debts, trophies };
         });
-        return paidOff;
+        return;
+      },
+
+      registerDebtPayment: (id, amount, date, note) => {
+        // Solo registra el pago en el historial. NO modifica currentBalance ni paid.
+        // El usuario actualiza el saldo manualmente vía bankAdjust según su estado de cuenta.
+        set((s) => ({
+          debts: s.debts.map((d) => {
+            if (d.id !== id) return d;
+            return {
+              ...d,
+              adjustments: [
+                ...d.adjustments,
+                { id: uid(), date: date ?? new Date().toISOString(), delta: -amount, note: note ?? "Pago" } as DebtAdjustment,
+              ],
+            };
+          }),
+        }));
+        return false;
       },
 
       awardTrophy: (kind, label, contextId, monthKey) => {

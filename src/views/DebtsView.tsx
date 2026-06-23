@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, Sparkles, Link2Off, ChevronDown, Sprout } from "lucide-react";
+import { Plus, Pencil, Trash2, Sparkles, Link2Off, ChevronDown, Sprout, Info } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PremiumGate } from "@/components/PremiumGate";
 import { useApp } from "@/store/useApp";
@@ -7,6 +7,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { fmt } from "@/lib/finance";
 import { toast } from "sonner";
 import { InlineDatePicker } from "@/components/InlineDatePicker";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 function Confetti() {
   const items = Array.from({ length: 18 });
@@ -30,7 +31,7 @@ function Confetti() {
   );
 }
 
-function AdjustDialog({ id, current, onClose }: { id: string; current: number; onClose: () => void }) {
+function AdjustDialog({ id, current, wasPaid, onClose, onLiquidated }: { id: string; current: number; wasPaid: boolean; onClose: () => void; onLiquidated: () => void }) {
   const { t } = useI18n();
   const [v, setV] = useState(current.toString());
   const bankAdjust = useApp((s) => s.bankAdjust);
@@ -47,7 +48,17 @@ function AdjustDialog({ id, current, onClose }: { id: string; current: number; o
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="text-sm text-sage-500 px-4 py-2">{t.shields.cancel}</button>
           <button
-            onClick={() => { bankAdjust(id, parseFloat(v) || 0); onClose(); toast.success("✓"); }}
+            onClick={() => {
+              const n = parseFloat(v) || 0;
+              bankAdjust(id, n);
+              onClose();
+              if (n === 0 && !wasPaid) {
+                onLiquidated();
+                toast.success(t.debts.celebration);
+              } else {
+                toast.success("✓");
+              }
+            }}
             className="bg-sage-900 text-sage-50 text-sm px-5 py-2 rounded-full font-medium"
           >
             {t.debts.adjustSave}
@@ -121,6 +132,7 @@ export function DebtsView() {
   return (
     <AppShell>
       {celebrate && <Confetti />}
+      <TooltipProvider delayDuration={150}>
       <header className="mb-8 flex items-end justify-between flex-wrap gap-4">
         <div>
           <h1 className="font-serif text-4xl text-wine flex items-center gap-3">
@@ -167,6 +179,10 @@ export function DebtsView() {
           {sorted.map((d, idx) => {
             const isTarget = idx === 0 && !d.paid;
             const progress = d.initialBalance > 0 ? 1 - d.currentBalance / d.initialBalance : 0;
+            const capitalPaid = Math.max(0, d.initialBalance - d.currentBalance);
+            const cashOut = d.adjustments
+              .filter((a) => a.delta < 0 && (a.note ?? "").toLowerCase().includes("pago"))
+              .reduce((s, a) => s + -a.delta, 0);
             return (
               <div
                 key={d.id}
@@ -209,7 +225,19 @@ export function DebtsView() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] uppercase tracking-widest text-sage-400">{t.snowball.currentBalance}</p>
+                    <p className="text-[10px] uppercase tracking-widest text-sage-400 inline-flex items-center gap-1 justify-end">
+                      {t.snowball.currentBalance}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button type="button" aria-label="Info Saldo Actual" className="text-sage-400 hover:text-wine">
+                            <Info className="size-3" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed">
+                          Este monto debes actualizarlo manualmente cada mes según el estado de cuenta real de tu banco, ya que los pagos incluyen intereses y comisiones que el sistema no calcula automáticamente.
+                        </TooltipContent>
+                      </Tooltip>
+                    </p>
                     <input
                       inputMode="decimal" defaultValue={d.currentBalance}
                       onBlur={(e) => { const n = parseFloat(e.target.value); if (!isNaN(n)) updateDebt(d.id, { currentBalance: n, paid: n === 0 }); }}
@@ -240,12 +268,19 @@ export function DebtsView() {
                   </div>
                 </div>
 
-                <div className="mt-3 h-1.5 bg-white/60 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full ${d.paid ? "bg-sage-600" : isTarget ? "bg-clay" : "bg-sage-400"}`}
-                    style={{ width: `${Math.max(2, progress * 100)}%`, transition: "width 600ms" }}
-                  />
-                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="mt-3 h-1.5 bg-white/60 rounded-full overflow-hidden cursor-help">
+                      <div
+                        className={`h-full ${d.paid ? "bg-sage-600" : isTarget ? "bg-clay" : "bg-sage-400"}`}
+                        style={{ width: `${Math.max(2, progress * 100)}%`, transition: "width 600ms" }}
+                      />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    Capital pagado a la fecha: {fmt(capitalPaid, currency)}
+                  </TooltipContent>
+                </Tooltip>
 
                 {!d.paid && (
                   <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -265,15 +300,9 @@ export function DebtsView() {
                         const n = parseFloat(payAmount[d.id] ?? "");
                         if (isNaN(n) || n <= 0) return;
                         const date = (payDate[d.id] ?? new Date()).toISOString();
-                        const paidOff = useApp.getState().registerDebtPayment(d.id, n, date, "Pago");
+                        useApp.getState().registerDebtPayment(d.id, n, date, "Pago");
                         setPayAmount({ ...payAmount, [d.id]: "" });
-                        if (paidOff) {
-                          setCelebrate(true);
-                          toast.success(t.debts.celebration);
-                          setTimeout(() => setCelebrate(false), 1500);
-                        } else {
-                          toast(`− ${fmt(n, currency)}`);
-                        }
+                        toast(`− ${fmt(n, currency)}`);
                       }}
                       className="text-xs bg-wine text-white px-4 py-2 rounded-full hover:opacity-90 transition"
                     >
@@ -300,6 +329,22 @@ export function DebtsView() {
                             </span>
                           </li>
                         ))}
+                        <li className="flex justify-between items-center pt-2 mt-1 border-t border-sage-100 font-bold text-sage-900">
+                          <span className="inline-flex items-center gap-1">
+                            Total de Efectivo Destinado
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button type="button" aria-label="Info total efectivo" className="text-sage-400 hover:text-wine font-normal">
+                                  <Info className="size-3" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed">
+                                Suma bruta de todos los pagos registrados (incluye capital, intereses y comisiones).
+                              </TooltipContent>
+                            </Tooltip>
+                          </span>
+                          <span className="tabular-nums">{fmt(cashOut, currency)}</span>
+                        </li>
                       </ul>
                     )}
                   </div>
@@ -309,13 +354,19 @@ export function DebtsView() {
           })}
         </div>
       </PremiumGate>
+      </TooltipProvider>
 
       {newOpen && <NewDebtDialog onClose={() => setNewOpen(false)} />}
       {adjustingDebt && (
         <AdjustDialog
           id={adjustingDebt.id}
           current={adjustingDebt.currentBalance}
+          wasPaid={adjustingDebt.paid}
           onClose={() => setAdjustId(null)}
+          onLiquidated={() => {
+            setCelebrate(true);
+            setTimeout(() => setCelebrate(false), 1500);
+          }}
         />
       )}
     </AppShell>

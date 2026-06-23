@@ -3,6 +3,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recha
 import { useApp } from "@/store/useApp";
 import { useI18n } from "@/i18n/I18nProvider";
 import { groupTotals, fmt } from "@/lib/finance";
+import { ChartTitleHelp } from "./ChartTitleHelp";
 
 const COLORS = ["#6b8e6b", "#c48a7a", "#8c736d", "#b6cbb5", "#e8b7b1"];
 
@@ -20,9 +21,11 @@ export function IncomeDestinationPie() {
 
   const data = useMemo(() => {
     if (!totals) return [];
-    return (["muros", "debts", "generosity", "lifestyle", "future"] as const)
+    const raw = (["muros", "debts", "generosity", "lifestyle", "future"] as const)
       .map((g, i) => ({ name: t.budget.groups[g], value: totals[g].real, color: COLORS[i] }))
       .filter((d) => d.value > 0);
+    const tot = raw.reduce((s, d) => s + d.value, 0) || 1;
+    return raw.map((d) => ({ ...d, pct: (d.value / tot) * 100, name: `${d.name} — ${((d.value / tot) * 100).toFixed(1)}%` }));
   }, [totals, t]);
 
   const years = Array.from({ length: 5 }, (_, i) => today.getFullYear() - 2 + i);
@@ -30,9 +33,10 @@ export function IncomeDestinationPie() {
   return (
     <section className="bg-white border border-sage-100 rounded-3xl p-6 mb-6">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-wine">
-          {t.dashboard.destination}
-        </h2>
+        <ChartTitleHelp
+          title={t.dashboard.destination}
+          help="Muestra la distribución exacta de tu dinero en el mes seleccionado. Cada porción representa una misión de tu presupuesto Base Cero."
+        />
         <div className="inline-flex items-center gap-1 bg-sage-50 rounded-full p-1 border border-sage-200">
           <select
             value={month}

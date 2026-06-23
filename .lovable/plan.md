@@ -1,107 +1,58 @@
-## Plan: Refinamientos de Escudos, Cierre de Mes, Dashboard y Saludo personalizado (v2)
+## Ajustes solicitados
 
-Incorpora las 3 correcciones de blindspots solicitadas. Mantiene la estética vino + salvia y la lógica local-first.
+### 1. Lógica financiera de "Adiós a las Cadenas"
 
-### 1. Mis Escudos · UX y nomenclatura
+**Archivo:** `src/store/useApp.ts` — `registerDebtPayment`
+- Registrar el pago en `adjustments` (delta = `-amount`, note = "Pago") **sin** modificar `currentBalance` ni marcar `paid`.
+- Devuelve `paidOff = false` siempre. La detección de liquidación se mueve a `bankAdjust`: cuando `newBalance === 0 && !d.paid` → setear `paid: true`, `paidAt`, otorgar trofeo `debt_paid` y disparar bola de nieve.
 
-- Renombrar título a **"Mis escudos y metas"** (`ShieldsView.tsx`, `AppShell.tsx`, `strings.ts`).
-- CTA `+ Crear Nuevo Escudo` → **`+ Crear Nueva Meta`** en todos los lugares.
-- En el modal de creación: campo **Nombre obligatorio** (`required` + validación). Placeholders: *"Viaje a Europa", "Mantenimiento Casa", "Fondo Universidad"*.
-- Conceptualmente: único "escudo" = Fondo de Emergencia. El resto = **Metas**.
+**Archivo:** `src/views/DebtsView.tsx`
+- Handler "Registrar pago": quitar celebración basada en `paidOff`. Mantener toast neutro `− monto`.
+- `AdjustDialog`: tras `bankAdjust`, si el nuevo saldo es 0 y la deuda no estaba pagada → confeti + `toast.success(t.debts.celebration)`.
 
-### 2. Eliminación de seeds de ejemplo
+### 2. Tooltip "Capital pagado" en barra de progreso
 
-- Estado inicial vacío en `useApp.ts` salvo el `emergency-fund` creado por `ensureEmergencyFund()`.
-- Migración v2 idempotente: shields seed `"initial"`/`"definitive"` sin historial → eliminados. Con historial → preservados como `"custom"`.
+`src/views/DebtsView.tsx`: envolver la barra en `Tooltip` de `@/components/ui/tooltip` con contenido `Capital pagado a la fecha: {fmt(d.initialBalance - d.currentBalance, currency)}`. Cursor `cursor-help`.
 
-### 3. Eliminación de metas personalizadas — con protección de historial (BLINDSPOT #2 RESUELTO)
+### 3. Total de Efectivo Destinado en historial
 
-- Icono `Trash2` sutil en cada card de meta personalizada (NO en Fondo de Emergencia).
-- **Regla de protección**: antes de habilitar el botón, el sistema calcula si existe alguna **línea vinculada** (`linkedShieldId === id`) en un **mes cerrado** (`month.closed === true`) con `real > 0`.
-  - **Si NO hay aportes en meses cerrados**: botón habilitado → diálogo de confirmación shadcn (*"¿Estás segura de que deseas eliminar esta meta? Esta acción no se puede deshacer."*) → al confirmar, `removeShield(id)` borra el escudo y **solo elimina líneas vinculadas en meses abiertos o futuros** (`!month.closed`). Toast: *"Meta eliminada. Las líneas en meses cerrados se preservaron en tu historial."*
-  - **Si SÍ hay aportes en meses cerrados**: botón de basura se reemplaza por un menú con dos opciones:
-    1. **Archivar meta** (default sugerida): marca `shield.archived = true`. La meta deja de aparecer en selects de presupuesto y en la sección activa de Escudos. Aparece colapsada en "Metas archivadas" al final de la vista. Las líneas en meses pasados permanecen intactas. Las líneas en meses abiertos/futuros se eliminan.
-    2. **Eliminar permanentemente** (oculta tras `AlertDialog` con doble confirmación + texto: *"Esta meta tiene aportes en meses cerrados. Eliminarla alterará tu historial. ¿Continuar de todos modos?"*).
-- Nuevo campo en `types.ts`: `Shield.archived?: boolean`.
+`src/views/DebtsView.tsx`: al final del `<ul>`, fila en negrita `Total de Efectivo Destinado: {fmt(sumPagos, currency)}` con `sumPagos = adjustments.filter(a=>a.delta<0).reduce((s,a)=>s+(-a.delta),0)`. Junto al texto, icono `<Info>` con tooltip: "Suma bruta de todos los pagos registrados (incluye capital, intereses y comisiones)."
 
-### 4. Cierre de mes (toggle con snapshot) — con reversión del sobrante (BLINDSPOT #1 RESUELTO)
+### 4. Icono (i) junto a "Saldo Actual"
 
-- Estado por mes: `closed?: boolean`, `closedAt?: string`, `snapshot?: { lines: BudgetLine[]; closedAt: string }`, `surplusCarryForwardId?: string` (id de la línea "Sobrante mes anterior" creada en el mes siguiente, si aplica).
-- Botón **"Cerrar mes" / "Reabrir mes"** en la cabecera de **Mi Calma** (`BudgetView.tsx`).
-- **Cerrar**:
-  - Si `balance < 0`: alerta amable + bloquea cierre. Texto: *"¡Atención! Tu presupuesto está en negativo…"* con sugerencias contextuales.
-  - Si `balance > 0`: modal **Asignación de sobrante** con 3 acciones (Pagar deuda / Guardar en escudo / Pasar al próximo mes). Si elige pasar al próximo mes, crea una línea `income` en `monthKey+1` llamada *"Sobrante mes anterior"* y guarda su id en `surplusCarryForwardId` del mes que se cierra.
-  - Si `balance === 0`: cierre directo.
-  - Guarda snapshot de `lines`.
-- **Reabrir** (BLINDSPOT #1):
-  - Pregunta *"¿Quieres continuar desde el último estado o restaurar la versión guardada?"* — ambas opciones desbloquean edición.
-  - **Reversión automática del carry-forward**: al reabrir, si `surplusCarryForwardId` existe, el sistema busca esa línea en el `monthKey+1` y la **elimina**. Si el mes siguiente ya está cerrado también, muestra alerta bloqueante: *"No puedes reabrir este mes porque el sobrante ya fue trasladado a [mes siguiente] y ese mes también está cerrado. Reabre primero el mes siguiente."*. Si el siguiente está abierto pero la línea ya fue editada manualmente (`real > 0`), se respeta `real` pero se ajusta `planned` a 0 y se notifica al usuario.
-  - Después de reabrir y editar, al volver a cerrar, se vuelve a ofrecer el modal de asignación con el nuevo balance.
-- **Bloqueo de edición** cuando `closed === true`: inputs de "Mi Realidad" `disabled`, sin botones de añadir/borrar línea. Banner: *"Mes cerrado · Reabre el toggle para editar."*.
-- Trigger de trofeo `under_budget` se evalúa solo dentro de `closeMonth()`.
+`src/views/DebtsView.tsx`: `<Info className="size-3 text-sage-400" />` junto al label, tooltip: "Este monto debes actualizarlo manualmente cada mes según el estado de cuenta real de tu banco, ya que los pagos incluyen intereses y comisiones que el sistema no calcula automáticamente."
 
-### 5. Flujo Free/Premium al crear desde presupuesto
+### 5. Gráficas del Dashboard
 
-- Escudos sigue **solo Premium** (mantener `PremiumGate`).
-- En `BudgetTable.tsx` al añadir línea en grupo `future`:
-  - `premium`: toast *"¡Excelente intención! Vamos a configurar los detalles de tu meta."* + `router.navigate({ to: "/escudos" })`. NO crea la línea.
-  - `free`: crea línea simple, sin redirección.
-- Misma lógica para grupo `debts` → `/deudas`.
+**5a. `IncomeDestinationPie.tsx`** — leyenda con %: calcular total y transformar `name` a `${name} — ${pct}%` (pct dinámico según mes seleccionado).
 
-### 6. Trazabilidad e integridad referencial
+**5b. `GoalsBarChart.tsx`** — quitar `stackId` (grouped bars). Cambiar valor por meta al **saldo acumulado** al cierre de cada mes (suma deposits − withdraws hasta `endOfMonth(m)`).
 
-- `shieldDeposit/shieldWithdraw` siempre escriben `note` con origen (`"Desde Mi Realidad"` / `"Desde Mis Escudos"`).
-- Pagos en líneas con `linkedDebtId` desde Mi Realidad ejecutan `registerDebtPayment(id, delta, "Desde Mi Realidad")` automáticamente.
-- Liquidación de deuda ($0): confeti + `awardTrophy("debt_paid")` + redistribución de `minimumPayment` a la siguiente deuda con ajuste *"Ajuste por efecto bola de nieve"*.
-- **No duplicados** (case-insensitive) en `addShield`, `addDebt`, renames.
-- **Rename cascada**: actualiza `line.name` en todos los meses vinculados.
+**5c. `DebtsBarChart.tsx`** — saldos vivos acumulativos: por cada deuda y mes, `initial + Σ adjustments.delta` con fecha ≤ fin de mes (0 si la deuda no existía). Mantener `stackId="d"` con leyenda por deuda → escalera descendente; meses sin movimiento heredan el saldo previo automáticamente.
 
-### 7. Dashboard · Selector y gráficas (BLINDSPOT #3 RESUELTO)
+### 6. Tooltips (i) en títulos de gráficas
 
-- **Header**: solo selector de **Año** (`ChevronLeft`/`ChevronRight` + `Select` de años). Eliminado el toggle mes/año del global.
-- **Scroll horizontal visible** en todas las gráficas mensuales (`HScrollChart` con `[&::-webkit-scrollbar]:h-2` y `bg-sage-100`).
-- **"El destino de mis ingresos"**: pastel **circular completo** (no dona), leyenda lateral con categorías de salida (4 Muros, Generosidad, Estilo de vida, Inversión y Futuro, Deudas). **Selector propio mes+año** (default = actual), independiente del header.
-- **Gráficas separadas para escudo y metas** (BLINDSPOT #3):
-  - **`EmergencyFundEvolutionChart.tsx`** — gráfica de **área** exclusiva del Fondo de Emergencia. Eje X = 12 meses del año seleccionado, eje Y = balance acumulado. Línea de hito horizontal en cada nivel ($1,000, 1–3 meses, 3–6 meses).
-  - **`GoalsBarChart.tsx`** — barras verticales para **metas personalizadas únicamente** (excluye `emergency-fund`). Eje Y = monto, eje X = meses del año; un color distinto por meta; leyenda inferior con nombres.
-- **`DebtsBarChart.tsx`** — barras verticales por mes para deudas activas; un color por deuda; leyenda inferior.
+Nuevo helper `src/components/charts/ChartTitleHelp.tsx` (`{title, help}` → `<h2>` + `Info` + `Tooltip`). Aplicar en:
+- `IncomeDestinationPie` — "Muestra la distribución exacta de tu dinero en el mes seleccionado. Cada porción representa una misión de tu presupuesto Base Cero."
+- `Dashboard.tsx` (Evolución Mensual) — "Compara tus ingresos totales frente a tus gastos mes a mes. Tu objetivo es mantener siempre la barra de ingresos por encima."
+- `EmergencyFundEvolutionChart` — "Visualiza el crecimiento de tu saldo acumulado. Este es tu escudo principal para proteger tu paz financiera ante imprevistos."
+- `GoalsBarChart` — "Sigue el progreso acumulativo de tus ahorros con propósito. Observa cómo cada meta crece mes a mes de forma independiente."
+- `DebtsBarChart` — "Visualiza el colapso de tu montaña de deudas. Muestra cómo tu saldo real pendiente decrece hacia cero usando el método de Bola de Nieve."
 
-### 8. Saludo personalizado
+### 7. Saludo dinámico y neutro en Dashboard
 
-- Reemplazar saludo del Dashboard por:
-  > **"Hola, {profile.name}. Me encanta que estés por aquí — vamos a ponerle intención a nuestro dinero."**
-- Si `profile.name` está vacío: *"Hola, bienvenida. Me encanta que estés por aquí…"*. Texto en `strings.ts → t.dashboard.greeting(name)`.
+**Archivos:** `src/i18n/strings.ts`, `src/views/Dashboard.tsx`
+- Reemplazar `t.dashboard.greetingTemplate` por: `"Hola, {name}. Me encanta que estés por aquí..."`.
+- `greetingFallback` (cuando no hay nombre en el perfil): `"Hola. Me encanta que estés por aquí..."` (sin marca de género).
+- Versión EN equivalente, neutra.
+- Variable `{name}` ya proviene de `state.profile.name` → reemplazo con `.replace("{name}", profile.name)` (lógica actual ya soporta esto).
 
-### 9. Archivos
+### Archivos
 
-**Nuevos**
-- `src/components/CloseMonthDialog.tsx`
-- `src/components/ReopenMonthDialog.tsx`
-- `src/components/DeleteGoalDialog.tsx` (con variantes: confirmación simple, archivar, eliminación permanente bloqueada)
-- `src/components/charts/IncomeDestinationPie.tsx`
-- `src/components/charts/EmergencyFundEvolutionChart.tsx`
-- `src/components/charts/GoalsBarChart.tsx`
-- `src/components/charts/DebtsBarChart.tsx`
+**Modificados:** `src/store/useApp.ts`, `src/views/DebtsView.tsx`, `src/components/charts/IncomeDestinationPie.tsx`, `src/components/charts/GoalsBarChart.tsx`, `src/components/charts/DebtsBarChart.tsx`, `src/components/charts/EmergencyFundEvolutionChart.tsx`, `src/views/Dashboard.tsx`, `src/i18n/strings.ts`.
 
-**Modificados**
-- `src/store/types.ts` (`MonthBudget.closed`, `closedAt`, `snapshot`, `surplusCarryForwardId`; `Shield.archived`)
-- `src/store/useApp.ts` (`closeMonth`, `reopenMonth` con reversión de carry-forward, `removeShield` con protección de meses cerrados, `archiveShield`, validaciones de duplicados, rename cascada, snowball auto)
-- `src/views/ShieldsView.tsx` (rename CTA, modal nombre obligatorio, papelera/archivar condicional, sección "Metas archivadas")
-- `src/views/BudgetView.tsx` (toggle cerrar/reabrir, banner mes cerrado, `disabled` propagado)
-- `src/components/BudgetTable.tsx` (free/premium redirect en `future`/`debts`, deshabilitar cuando cerrado)
-- `src/views/Dashboard.tsx` (selector solo año, saludo, integración gráficas nuevas)
-- `src/components/DashboardPeriodSelector.tsx` (solo año, scroll visible)
-- `src/components/HScrollChart.tsx` (barra visible salvia)
-- `src/i18n/strings.ts` (CTAs, copys de cierre/reapertura, archivar, saludo, leyendas)
-- `src/components/AppShell.tsx` (nav "Mis escudos y metas")
+**Nuevo:** `src/components/charts/ChartTitleHelp.tsx`.
 
-**Sin dependencias nuevas** (`recharts` ya disponible).
-
-### Notas técnicas
-
-- `surplusCarryForwardId` es el contrato de seguridad para la reversión del sobrante; al borrarse la línea en mes+1, el `Number(planned)` y `Number(real)` se eliminan en bloque para no dejar residuos.
-- La protección de meses cerrados al borrar metas valida `month.closed && line.real > 0` para considerar el aporte "real" (un `planned` huérfano no protege).
-- `Shield.archived` filtra de selects, leyendas de gráficas y totales activos, pero las líneas históricas siguen calculando totales pasados correctamente.
-- Migración v2 corre una vez en `ensureEmergencyFund()`.
-- Snapshots viven en `localStorage` (~JSON ligero).
-- Toast Free→Premium con `duration: 4500` antes del navigate.
+### Notas
+- Todos los tooltips usan `Tooltip` de shadcn (`@/components/ui/tooltip`) para accesibilidad táctil.
+- No hay cambios en tipos ni migraciones; los pagos previos quedan intactos.
