@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Sprout, Shield as ShieldIcon, ArrowRight, X } from "lucide-react";
-import { useApp, type SurplusAllocation } from "@/store/useApp";
+import { Sprout, Shield as ShieldIcon, ArrowRight, X, Plus } from "lucide-react";
+import { useApp, type SurplusAllocation, isPremiumNow } from "@/store/useApp";
 import { useI18n } from "@/i18n/I18nProvider";
 import { fmt, EMERGENCY_FUND_ID } from "@/lib/finance";
+import { toast } from "sonner";
 
 export function CloseMonthDialog({
   monthKey,
@@ -16,14 +17,20 @@ export function CloseMonthDialog({
   onClosed: () => void;
 }) {
   const { t } = useI18n();
-  const currency = useApp((s) => s.profile.currency);
+  const profile = useApp((s) => s.profile);
+  const currency = profile.currency;
+  const premium = isPremiumNow(profile);
   const debts = useApp((s) => s.debts).filter((d) => !d.paid);
   const shields = useApp((s) => s.shields).filter((s) => !s.archived);
   const closeMonth = useApp((s) => s.closeMonth);
+  const addShield = useApp((s) => s.addShield);
 
   const [choice, setChoice] = useState<"debt" | "shield" | "carry" | null>(null);
   const [targetId, setTargetId] = useState<string>(() => debts[0]?.id ?? shields.find((s) => s.id === EMERGENCY_FUND_ID)?.id ?? shields[0]?.id ?? "");
   const [amount, setAmount] = useState(balance.toFixed(2));
+  const [creatingGoal, setCreatingGoal] = useState(false);
+  const [newGoalName, setNewGoalName] = useState("");
+  const [newGoalTarget, setNewGoalTarget] = useState("");
 
   const negative = balance < -0.005;
   const positive = balance > 0.005;
@@ -111,14 +118,73 @@ export function CloseMonthDialog({
 
             {(choice === "debt" || choice === "shield") && (
               <select
-                value={targetId}
-                onChange={(e) => setTargetId(e.target.value)}
+                value={creatingGoal ? "__new__" : targetId}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "__new__") {
+                    setCreatingGoal(true);
+                  } else {
+                    setCreatingGoal(false);
+                    setTargetId(v);
+                  }
+                }}
                 className="w-full bg-sage-50 rounded-xl px-3 py-2 mb-3 outline-none text-sm"
               >
                 {(choice === "debt" ? debts : shields).map((x) => (
                   <option key={x.id} value={x.id}>{x.name}</option>
                 ))}
+                {choice === "shield" && (
+                  <option value="__new__">+ Crear nueva meta…</option>
+                )}
               </select>
+            )}
+
+            {choice === "shield" && creatingGoal && (
+              <div className="bg-sage-50 border border-sage-200 rounded-2xl p-3 mb-3 space-y-2">
+                <p className="text-[10px] uppercase tracking-widest text-wine font-semibold flex items-center gap-1">
+                  <Plus className="size-3" /> Nueva meta
+                </p>
+                <input
+                  autoFocus
+                  value={newGoalName}
+                  onChange={(e) => setNewGoalName(e.target.value)}
+                  placeholder='"Viaje a Europa", "Mantenimiento casa"'
+                  className="w-full bg-white rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sage-200 placeholder:text-sage-300 placeholder:text-xs"
+                />
+                {premium && (
+                  <input
+                    inputMode="decimal"
+                    value={newGoalTarget}
+                    onChange={(e) => setNewGoalTarget(e.target.value)}
+                    placeholder="Meta ($) — opcional"
+                    className="w-full bg-white rounded-xl px-3 py-2 text-sm tabular-nums outline-none focus:ring-2 focus:ring-sage-200 placeholder:text-sage-300 placeholder:text-xs"
+                  />
+                )}
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => { setCreatingGoal(false); setNewGoalName(""); setNewGoalTarget(""); }}
+                    className="text-xs text-sage-500 px-3 py-1.5"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => {
+                      const name = newGoalName.trim();
+                      if (!name) return;
+                      const goal = premium ? (parseFloat(newGoalTarget) || 0) : 0;
+                      const id = addShield(name, goal);
+                      if (!id) { toast.error("Ya tienes una meta con ese nombre."); return; }
+                      setTargetId(id);
+                      setCreatingGoal(false);
+                      setNewGoalName(""); setNewGoalTarget("");
+                      toast.success("Meta creada y lista para recibir el sobrante.");
+                    }}
+                    className="bg-wine text-white text-xs px-4 py-1.5 rounded-full font-medium"
+                  >
+                    Crear y asignar
+                  </button>
+                </div>
+              </div>
             )}
 
             {choice && (
