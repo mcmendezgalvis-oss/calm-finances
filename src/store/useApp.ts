@@ -13,6 +13,17 @@ export const monthKeyOf = (d: Date) =>
 
 export const currentMonthKey = () => monthKeyOf(new Date());
 
+export function nextMonthKey(monthKey: string): string {
+  const [y, m] = monthKey.split("-").map(Number);
+  return monthKeyOf(new Date(y, m, 1));
+}
+
+export type SurplusAllocation =
+  | { type: "none" }
+  | { type: "carry"; amount: number }
+  | { type: "debt"; debtId: string; amount: number }
+  | { type: "shield"; shieldId: string; amount: number };
+
 export function emptyMonth(monthKey: string): MonthBudget {
   return { monthKey, lines: [] };
 }
@@ -24,11 +35,14 @@ interface Actions {
   updateLine: (monthKey: string, lineId: string, patch: Partial<BudgetLine>) => void;
   removeLine: (monthKey: string, lineId: string) => void;
   copyFromPrevious: (monthKey: string) => void;
-  addShield: (name: string, goal: number, kind?: "custom" | "initial" | "definitive") => string;
-  removeShield: (id: string) => void;
+  addShield: (name: string, goal: number, kind?: "custom" | "initial" | "definitive") => string | null;
+  removeShield: (id: string, options?: { force?: boolean }) => boolean;
+  archiveShield: (id: string) => void;
+  shieldHasClosedHistory: (id: string) => boolean;
+  renameShield: (id: string, name: string) => boolean;
   shieldDeposit: (id: string, amount: number, note?: string, date?: string) => void;
   shieldWithdraw: (id: string, amount: number, note?: string, date?: string) => void;
-  addDebt: (input: { name: string; initialBalance: number; minimumPayment: number }) => string;
+  addDebt: (input: { name: string; initialBalance: number; minimumPayment: number }) => string | null;
   removeDebt: (id: string) => void;
   updateDebt: (id: string, patch: Partial<Debt>) => void;
   bankAdjust: (id: string, newBalance: number, note?: string) => void;
@@ -38,6 +52,8 @@ interface Actions {
   redeemCode: (code: string) => boolean;
   awardTrophy: (kind: TrophyKind, label: string, contextId?: string, monthKey?: string) => Trophy | null;
   checkMonthClose: (monthKey: string) => Trophy[];
+  closeMonth: (monthKey: string, allocation: SurplusAllocation) => { ok: boolean; reason?: string };
+  reopenMonth: (monthKey: string, mode: "continue" | "restore") => { ok: boolean; reason?: string; notice?: string };
   resetAll: () => void;
 }
 
