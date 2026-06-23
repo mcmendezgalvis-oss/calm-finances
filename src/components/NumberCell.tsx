@@ -44,7 +44,7 @@ export function NumberCell({
         tone === "realidad"
           ? "cell-realidad text-sage-900 placeholder:text-clay/40"
           : "bg-transparent text-sage-900 hover:bg-sage-50 focus:bg-white border border-transparent focus:border-sage-200"
-      } ${className}`}
+      } min-w-[6.5rem] sm:min-w-[8rem] tabular-nums ${className}`}
     />
   );
 }

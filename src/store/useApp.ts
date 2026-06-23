@@ -30,7 +30,7 @@ interface Actions {
   removeDebt: (id: string) => void;
   updateDebt: (id: string, patch: Partial<Debt>) => void;
   bankAdjust: (id: string, newBalance: number, note?: string) => void;
-  registerDebtPayment: (id: string, amount: number) => boolean;
+  registerDebtPayment: (id: string, amount: number, date?: string, note?: string) => boolean;
   setProfileName: (name: string) => void;
   setPlan: (plan: UserPlan, days?: number) => void;
   redeemCode: (code: string) => boolean;
