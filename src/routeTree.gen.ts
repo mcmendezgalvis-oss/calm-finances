@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ReportesRouteImport } from './routes/reportes'
 import { Route as PresupuestoRouteImport } from './routes/presupuesto'
+import { Route as LogrosRouteImport } from './routes/logros'
 import { Route as EscudosRouteImport } from './routes/escudos'
 import { Route as DeudasRouteImport } from './routes/deudas'
 import { Route as AjustesRouteImport } from './routes/ajustes'
@@ -24,6 +25,11 @@ const ReportesRoute = ReportesRouteImport.update({
 const PresupuestoRoute = PresupuestoRouteImport.update({
   id: '/presupuesto',
   path: '/presupuesto',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LogrosRoute = LogrosRouteImport.update({
+  id: '/logros',
+  path: '/logros',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EscudosRoute = EscudosRouteImport.update({
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/ajustes': typeof AjustesRoute
   '/deudas': typeof DeudasRoute
   '/escudos': typeof EscudosRoute
+  '/logros': typeof LogrosRoute
   '/presupuesto': typeof PresupuestoRoute
   '/reportes': typeof ReportesRoute
 }
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/ajustes': typeof AjustesRoute
   '/deudas': typeof DeudasRoute
   '/escudos': typeof EscudosRoute
+  '/logros': typeof LogrosRoute
   '/presupuesto': typeof PresupuestoRoute
   '/reportes': typeof ReportesRoute
 }
@@ -69,6 +77,7 @@ export interface FileRoutesById {
   '/ajustes': typeof AjustesRoute
   '/deudas': typeof DeudasRoute
   '/escudos': typeof EscudosRoute
+  '/logros': typeof LogrosRoute
   '/presupuesto': typeof PresupuestoRoute
   '/reportes': typeof ReportesRoute
 }
@@ -79,16 +88,25 @@ export interface FileRouteTypes {
     | '/ajustes'
     | '/deudas'
     | '/escudos'
+    | '/logros'
     | '/presupuesto'
     | '/reportes'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/ajustes' | '/deudas' | '/escudos' | '/presupuesto' | '/reportes'
+  to:
+    | '/'
+    | '/ajustes'
+    | '/deudas'
+    | '/escudos'
+    | '/logros'
+    | '/presupuesto'
+    | '/reportes'
   id:
     | '__root__'
     | '/'
     | '/ajustes'
     | '/deudas'
     | '/escudos'
+    | '/logros'
     | '/presupuesto'
     | '/reportes'
   fileRoutesById: FileRoutesById
@@ -98,6 +116,7 @@ export interface RootRouteChildren {
   AjustesRoute: typeof AjustesRoute
   DeudasRoute: typeof DeudasRoute
   EscudosRoute: typeof EscudosRoute
+  LogrosRoute: typeof LogrosRoute
   PresupuestoRoute: typeof PresupuestoRoute
   ReportesRoute: typeof ReportesRoute
 }
@@ -116,6 +135,13 @@ declare module '@tanstack/react-router' {
       path: '/presupuesto'
       fullPath: '/presupuesto'
       preLoaderRoute: typeof PresupuestoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/logros': {
+      id: '/logros'
+      path: '/logros'
+      fullPath: '/logros'
+      preLoaderRoute: typeof LogrosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/escudos': {
@@ -154,6 +180,7 @@ const rootRouteChildren: RootRouteChildren = {
   AjustesRoute: AjustesRoute,
   DeudasRoute: DeudasRoute,
   EscudosRoute: EscudosRoute,
+  LogrosRoute: LogrosRoute,
   PresupuestoRoute: PresupuestoRoute,
   ReportesRoute: ReportesRoute,
 }
