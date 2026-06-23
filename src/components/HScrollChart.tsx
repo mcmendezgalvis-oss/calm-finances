@@ -15,7 +15,7 @@ export function HScrollChart({
 }) {
   return (
     <div
-      className="overflow-x-auto overscroll-x-contain snap-x snap-mandatory [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:bg-sage-200 [&::-webkit-scrollbar-thumb]:rounded-full"
+      className="overflow-x-auto overscroll-x-contain snap-x snap-mandatory [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-sage-50 [&::-webkit-scrollbar-thumb]:bg-sage-300 [&::-webkit-scrollbar-thumb]:rounded-full"
       style={{ WebkitOverflowScrolling: "touch" }}
     >
       <div style={{ minWidth, height }} className="snap-start">
