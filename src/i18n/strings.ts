@@ -19,6 +19,28 @@ type DictShape = {
   paywall: Record<string, string>;
   pwa: Record<string, string>;
   common: Record<string, string>;
+  reports: {
+    title: string;
+    subtitle: string;
+    period: Record<"month" | "year" | "custom", string>;
+    shortcuts: Record<"last30" | "thisMonth" | "lastMonth" | "ytd", string>;
+    from: string;
+    to: string;
+    type: string;
+    typeBudget: string;
+    typeDebt: string;
+    typeShield: string;
+    selectEntity: string;
+    download: string;
+    noData: string;
+    history: string;
+  };
+  toasts: {
+    goConfigureDebt: string;
+    goConfigureShield: string;
+    goButtonDebts: string;
+    goButtonShields: string;
+  };
   months: string[];
 };
 
