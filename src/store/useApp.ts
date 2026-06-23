@@ -294,17 +294,91 @@ export const useApp = create<Store>()(
       },
 
       addShield: (name, goal, kind = "custom") => {
+        const trimmed = name.trim();
+        if (!trimmed) return null;
+        const s = get();
+        const exists = s.shields.some(
+          (sh) => !sh.archived && sh.name.trim().toLowerCase() === trimmed.toLowerCase(),
+        );
+        if (exists) return null;
         const id = uid();
-        set((s) => ({
+        set({
           shields: [
             ...s.shields,
-            { id, name, kind, goal, balance: 0, createdAt: new Date().toISOString(), history: [] },
+            { id, name: trimmed, kind, goal, balance: 0, createdAt: new Date().toISOString(), history: [] },
           ],
-        }));
+        });
         return id;
       },
 
-      removeShield: (id) => set((s) => ({ shields: s.shields.filter((sh) => sh.id !== id) })),
+      shieldHasClosedHistory: (id) => {
+        const s = get();
+        for (const m of Object.values(s.months)) {
+          if (!m.closed) continue;
+          for (const l of m.lines) {
+            if (l.linkedShieldId === id && (l.real || 0) > 0) return true;
+          }
+        }
+        return false;
+      },
+
+      renameShield: (id, name) => {
+        const trimmed = name.trim();
+        if (!trimmed) return false;
+        const s = get();
+        const dup = s.shields.some(
+          (sh) => sh.id !== id && !sh.archived && sh.name.trim().toLowerCase() === trimmed.toLowerCase(),
+        );
+        if (dup) return false;
+        set({
+          shields: s.shields.map((sh) => (sh.id === id ? { ...sh, name: trimmed } : sh)),
+          months: Object.fromEntries(
+            Object.entries(s.months).map(([k, m]) => [
+              k,
+              { ...m, lines: m.lines.map((l) => (l.linkedShieldId === id ? { ...l, name: trimmed } : l)) },
+            ]),
+          ),
+        });
+        return true;
+      },
+
+      removeShield: (id, options) => {
+        if (id === EMERGENCY_FUND_ID) return false;
+        const s = get();
+        const hasClosed = (() => {
+          for (const m of Object.values(s.months)) {
+            if (!m.closed) continue;
+            for (const l of m.lines) if (l.linkedShieldId === id && (l.real || 0) > 0) return true;
+          }
+          return false;
+        })();
+        if (hasClosed && !options?.force) return false;
+        set({
+          shields: s.shields.filter((sh) => sh.id !== id),
+          months: Object.fromEntries(
+            Object.entries(s.months).map(([k, m]) => {
+              // Remove linked lines only from open months (or all if force)
+              if (m.closed && !options?.force) return [k, m];
+              return [k, { ...m, lines: m.lines.filter((l) => l.linkedShieldId !== id) }];
+            }),
+          ),
+        });
+        return true;
+      },
+
+      archiveShield: (id) => {
+        if (id === EMERGENCY_FUND_ID) return;
+        set((s) => ({
+          shields: s.shields.map((sh) => (sh.id === id ? { ...sh, archived: true } : sh)),
+          // Strip linked lines from open/future months only
+          months: Object.fromEntries(
+            Object.entries(s.months).map(([k, m]) => {
+              if (m.closed) return [k, m];
+              return [k, { ...m, lines: m.lines.filter((l) => l.linkedShieldId !== id) }];
+            }),
+          ),
+        }));
+      },
 
       shieldDeposit: (id, amount, note, date) =>
         set((s) => {
