@@ -16,6 +16,7 @@ import { EmergencyFundEvolutionChart } from "@/components/charts/EmergencyFundEv
 import { GoalsBarChart } from "@/components/charts/GoalsBarChart";
 import { DebtsBarChart } from "@/components/charts/DebtsBarChart";
 import { celebrateTrophy } from "@/lib/trophies";
+import { ChartTitleHelp } from "@/components/charts/ChartTitleHelp";
 
 export function Dashboard() {
   const { t, lang } = useI18n();
@@ -101,9 +102,10 @@ export function Dashboard() {
       <PremiumGate allowReadOnly>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <section className="bg-white border border-sage-100 rounded-3xl p-6">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-wine mb-4">
-              {t.dashboard.evolution} · {period.year}
-            </h2>
+            <ChartTitleHelp
+              title={`${t.dashboard.evolution} · ${period.year}`}
+              help="Compara tus ingresos totales frente a tus gastos mes a mes. Tu objetivo es mantener siempre la barra de ingresos por encima."
+            />
             <HScrollChart minWidth={evoMinWidth} height={240}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={evolutionData}>
