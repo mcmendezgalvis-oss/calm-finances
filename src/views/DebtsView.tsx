@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, Sparkles } from "lucide-react";
+import { Plus, Pencil, Trash2, Sparkles, Link2Off, ChevronDown } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PremiumGate } from "@/components/PremiumGate";
 import { useApp } from "@/store/useApp";
 import { useI18n } from "@/i18n/I18nProvider";
 import { fmt } from "@/lib/finance";
 import { toast } from "sonner";
+import { InlineDatePicker } from "@/components/InlineDatePicker";
 
 function Confetti() {
   const items = Array.from({ length: 18 });
@@ -101,6 +102,9 @@ export function DebtsView() {
   const [adjustId, setAdjustId] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
+  const [openHistoryId, setOpenHistoryId] = useState<string | null>(null);
+  const [payAmount, setPayAmount] = useState<Record<string, string>>({});
+  const [payDate, setPayDate] = useState<Record<string, Date>>({});
 
   const sorted = useMemo(() => {
     const active = debts.filter((d) => !d.paid).sort((a, b) => a.currentBalance - b.currentBalance);
@@ -118,12 +122,14 @@ export function DebtsView() {
       {celebrate && <Confetti />}
       <header className="mb-8 flex items-end justify-between flex-wrap gap-4">
         <div>
-          <h1 className="font-serif text-4xl text-sage-900">{t.debts.title}</h1>
+          <h1 className="font-serif text-4xl text-wine flex items-center gap-3">
+            <Link2Off className="size-7" /> {t.debts.title}
+          </h1>
           <p className="text-sm text-sage-600 italic mt-1">{t.debts.subtitle}</p>
         </div>
         <button
           onClick={() => setNewOpen(true)}
-          className="inline-flex items-center gap-2 bg-sage-900 text-sage-50 text-sm px-5 py-2.5 rounded-full font-medium hover:bg-sage-700 transition-colors"
+          className="inline-flex items-center gap-2 bg-wine text-white text-sm px-5 py-2.5 rounded-full font-medium hover:opacity-90 transition"
         >
           <Plus className="size-4" /> {t.debts.add.replace("+ ", "")}
         </button>
@@ -175,13 +181,30 @@ export function DebtsView() {
                         <Sparkles className="size-3" /> {t.debts.paid}
                       </span>
                     )}
-                    <p className="font-serif text-xl text-sage-900">{d.name}</p>
-                    <p className="text-xs text-sage-500 mt-0.5">
-                      Mínimo: {fmt(d.minimumPayment, currency)} · Inicial: {fmt(d.initialBalance, currency)}
-                    </p>
+                    <p className="font-serif text-xl text-wine">{d.name}</p>
+                    <div className="text-xs text-sage-500 mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                      <label className="inline-flex items-center gap-1">Inicial:
+                        <input
+                          inputMode="decimal" defaultValue={d.initialBalance}
+                          onBlur={(e) => { const n = parseFloat(e.target.value); if (!isNaN(n)) updateDebt(d.id, { initialBalance: n }); }}
+                          className="w-20 text-xs bg-white/50 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-wine tabular-nums"
+                        />
+                      </label>
+                      <label className="inline-flex items-center gap-1">Mínimo:
+                        <input
+                          inputMode="decimal" defaultValue={d.minimumPayment}
+                          onBlur={(e) => { const n = parseFloat(e.target.value); if (!isNaN(n)) updateDebt(d.id, { minimumPayment: n }); }}
+                          className="w-20 text-xs bg-white/50 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-wine tabular-nums"
+                        />
+                      </label>
+                    </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-serif text-2xl text-sage-900">{fmt(d.currentBalance, currency)}</p>
+                    <input
+                      inputMode="decimal" defaultValue={d.currentBalance}
+                      onBlur={(e) => { const n = parseFloat(e.target.value); if (!isNaN(n)) updateDebt(d.id, { currentBalance: n, paid: n === 0 }); }}
+                      className="font-serif text-2xl text-sage-900 text-right w-32 bg-transparent outline-none focus:bg-white rounded px-1 tabular-nums"
+                    />
                     <div className="flex gap-1 justify-end mt-1">
                       {!d.paid && (
                         <button
@@ -212,35 +235,60 @@ export function DebtsView() {
                 </div>
 
                 {!d.paid && (
-                  <div className="mt-3 flex gap-2">
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <input
+                      inputMode="decimal"
+                      placeholder="Monto del pago"
+                      value={payAmount[d.id] ?? ""}
+                      onChange={(e) => setPayAmount({ ...payAmount, [d.id]: e.target.value })}
+                      className="text-xs bg-white rounded-full px-3 py-2 outline-none focus:ring-2 focus:ring-wine/40 w-32 tabular-nums"
+                    />
+                    <InlineDatePicker
+                      date={payDate[d.id] ?? new Date()}
+                      onChange={(dd) => setPayDate({ ...payDate, [d.id]: dd })}
+                    />
                     <button
                       onClick={() => {
-                        const a = prompt("¿Cuánto pagaste?");
-                        const n = a ? parseFloat(a) : NaN;
-                        if (!isNaN(n) && n > 0) {
-                          const paidOff = useApp.getState().registerDebtPayment(d.id, n);
-                          if (paidOff) {
-                            setCelebrate(true);
-                            toast.success(t.debts.celebration);
-                            setTimeout(() => setCelebrate(false), 1500);
-                          } else {
-                            toast(`− ${fmt(n, currency)}`);
-                          }
+                        const n = parseFloat(payAmount[d.id] ?? "");
+                        if (isNaN(n) || n <= 0) return;
+                        const date = (payDate[d.id] ?? new Date()).toISOString();
+                        const paidOff = useApp.getState().registerDebtPayment(d.id, n, date, "Pago");
+                        setPayAmount({ ...payAmount, [d.id]: "" });
+                        if (paidOff) {
+                          setCelebrate(true);
+                          toast.success(t.debts.celebration);
+                          setTimeout(() => setCelebrate(false), 1500);
+                        } else {
+                          toast(`− ${fmt(n, currency)}`);
                         }
                       }}
-                      className="text-xs bg-sage-900 text-sage-50 px-4 py-1.5 rounded-full hover:bg-sage-700 transition-colors"
+                      className="text-xs bg-wine text-white px-4 py-2 rounded-full hover:opacity-90 transition"
                     >
                       Registrar pago
                     </button>
+                  </div>
+                )}
+
+                {d.adjustments.length > 0 && (
+                  <div className="mt-3">
                     <button
-                      onClick={() => {
-                        const n = prompt("Nuevo mínimo mensual", d.minimumPayment.toString());
-                        if (n) updateDebt(d.id, { minimumPayment: parseFloat(n) || 0 });
-                      }}
-                      className="text-xs text-sage-600 hover:text-sage-900 px-3 py-1.5"
+                      onClick={() => setOpenHistoryId(openHistoryId === d.id ? null : d.id)}
+                      className="text-[10px] uppercase tracking-widest text-sage-400 hover:text-wine inline-flex items-center gap-1"
                     >
-                      Editar mínimo
+                      {t.reports.history} <ChevronDown className={`size-3 transition-transform ${openHistoryId === d.id ? "rotate-180" : ""}`} />
                     </button>
+                    {openHistoryId === d.id && (
+                      <ul className="mt-2 space-y-1 text-xs">
+                        {[...d.adjustments].reverse().slice(0, 12).map((a) => (
+                          <li key={a.id} className="flex justify-between text-sage-500">
+                            <span>{new Date(a.date).toLocaleDateString()} · {a.note ?? "—"}</span>
+                            <span className={a.delta < 0 ? "text-sage-700" : "text-clay"}>
+                              {a.delta >= 0 ? "+" : ""}{fmt(a.delta, currency)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                 )}
               </div>

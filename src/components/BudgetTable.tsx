@@ -1,10 +1,21 @@
 import { useMemo } from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, Sparkles, Home, Link2Off, HandHeart, Flower2, Sprout } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { useApp } from "@/store/useApp";
 import { useI18n } from "@/i18n/I18nProvider";
-import { GROUP_ORDER, groupTotals, fmt } from "@/lib/finance";
+import { GROUP_ORDER, groupTotals, fmt, lineDiff } from "@/lib/finance";
 import { NumberCell } from "./NumberCell";
 import type { GroupKey, MonthBudget } from "@/store/types";
+
+const GROUP_ICONS: Record<GroupKey, React.ComponentType<{ className?: string }>> = {
+  income: Sparkles,
+  muros: Home,
+  debts: Link2Off,
+  generosity: HandHeart,
+  lifestyle: Flower2,
+  future: Sprout,
+};
 
 export type BudgetTab = "plan" | "real" | "diff";
 
@@ -15,6 +26,7 @@ export function BudgetTable({
   tab: BudgetTab;
 }) {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const currency = useApp((s) => s.profile.currency);
   const debts = useApp((s) => s.debts);
   const updateLine = useApp((s) => s.updateLine);
@@ -36,10 +48,12 @@ export function BudgetTable({
       {GROUP_ORDER.map((g) => {
         const lines = grouped[g];
         const groupTotal = totals[g];
+        const Icon = GROUP_ICONS[g];
         return (
           <section key={g}>
-            <header className="flex items-center justify-between border-b border-sage-100 pb-2 mb-3">
-              <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-sage-600">
+            <header className="flex items-center justify-between border-b border-wine/15 pb-2 mb-3">
+              <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-wine font-serif">
+                <Icon className="size-4 text-wine/70" />
                 {t.budget.groups[g]}
               </h3>
               <span className="text-[11px] text-sage-400 font-mono">
@@ -52,7 +66,7 @@ export function BudgetTable({
                 <p className="text-xs italic text-sage-400 px-2 py-3">—</p>
               )}
               {lines.map((l) => {
-                const diff = l.planned - l.real;
+                const diff = lineDiff(l);
                 const positive = diff >= 0;
                 const linked = l.linkedDebtId
                   ? debts.find((d) => d.id === l.linkedDebtId)
@@ -138,8 +152,24 @@ export function BudgetTable({
 
               {tab !== "diff" && (
                 <button
-                  onClick={() => addLine(month.monthKey, g)}
-                  className="text-xs text-sage-500 hover:text-sage-700 px-2 py-2 italic"
+                  onClick={() => {
+                    if (g === "debts") {
+                      toast(t.toasts.goConfigureDebt, {
+                        icon: <Sparkles className="size-4 text-wine" />,
+                        action: { label: t.toasts.goButtonDebts, onClick: () => navigate({ to: "/deudas" }) },
+                      });
+                      return;
+                    }
+                    if (g === "future") {
+                      toast(t.toasts.goConfigureShield, {
+                        icon: <Sparkles className="size-4 text-wine" />,
+                        action: { label: t.toasts.goButtonShields, onClick: () => navigate({ to: "/escudos" }) },
+                      });
+                      return;
+                    }
+                    addLine(month.monthKey, g);
+                  }}
+                  className="text-xs text-sage-500 hover:text-wine px-2 py-2 italic transition-colors"
                 >
                   {t.budget.addLine}
                 </button>

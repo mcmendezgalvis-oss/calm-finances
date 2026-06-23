@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Plus, Lock, ArrowDown, ArrowUp, Trash2 } from "lucide-react";
+import { Plus, Lock, ArrowDown, ArrowUp, Trash2, Shield as ShieldIcon, ChevronDown } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PremiumGate } from "@/components/PremiumGate";
 import { useApp, currentMonthKey } from "@/store/useApp";
 import { useI18n } from "@/i18n/I18nProvider";
 import { fmt, muros4Total } from "@/lib/finance";
 import { toast } from "sonner";
+import { InlineDatePicker } from "@/components/InlineDatePicker";
 
 function Ring({ pct, size = 64 }: { pct: number; size?: number }) {
   const r = (size - 8) / 2;
@@ -32,6 +33,8 @@ function ShieldCard({ shieldId, locked = false }: { shieldId?: string; locked?: 
   const shieldWithdraw = useApp((s) => s.shieldWithdraw);
   const [showHistory, setShowHistory] = useState(false);
   const [amount, setAmount] = useState("");
+  const [date, setDate] = useState<Date>(new Date());
+  const [editGoal, setEditGoal] = useState(false);
 
   if (locked) {
     return (
@@ -59,10 +62,32 @@ function ShieldCard({ shieldId, locked = false }: { shieldId?: string; locked?: 
       <div className="flex items-start gap-4 mb-4">
         <Ring pct={pct} />
         <div className="flex-1 min-w-0">
-          <p className="font-serif text-xl text-sage-900 truncate">{shield.name}</p>
-          <p className="text-xs text-sage-500 mt-0.5">
-            {fmt(shield.balance, currency)} / {fmt(shield.goal, currency)}
+          <p className="font-serif text-xl text-wine truncate flex items-center gap-2">
+            <ShieldIcon className="size-4 text-wine/70" />
+            {shield.name}
           </p>
+          {editGoal ? (
+            <div className="flex items-center gap-1 mt-1">
+              <span className="text-xs text-sage-500">{fmt(shield.balance, currency)} /</span>
+              <input
+                inputMode="decimal"
+                defaultValue={shield.goal}
+                onBlur={(e) => {
+                  const n = parseFloat(e.target.value);
+                  if (!isNaN(n)) {
+                    useApp.setState((st) => ({ shields: st.shields.map((s) => s.id === shield.id ? { ...s, goal: n } : s) }));
+                  }
+                  setEditGoal(false);
+                }}
+                className="w-24 text-xs bg-sage-50 rounded px-2 py-0.5 outline-none focus:ring-2 focus:ring-sage-200"
+                autoFocus
+              />
+            </div>
+          ) : (
+            <button onClick={() => setEditGoal(true)} className="text-xs text-sage-500 mt-0.5 hover:text-wine">
+              {fmt(shield.balance, currency)} / {fmt(shield.goal, currency)} ✎
+            </button>
+          )}
           {complete && (
             <span className="inline-block mt-2 text-[10px] uppercase tracking-widest text-sage-600 font-semibold">
               {t.shields.complete}
@@ -81,24 +106,25 @@ function ShieldCard({ shieldId, locked = false }: { shieldId?: string; locked?: 
         )}
       </div>
 
-      <div className="flex gap-2 mb-3">
+      <div className="flex flex-wrap gap-2 mb-3 items-center">
         <input
           inputMode="decimal"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           placeholder="0.00"
-          className="flex-1 text-sm bg-sage-50 rounded-full px-4 py-2 outline-none focus:ring-2 focus:ring-sage-200"
+          className="flex-1 min-w-[8rem] text-sm bg-sage-50 rounded-full px-4 py-2 outline-none focus:ring-2 focus:ring-sage-200 tabular-nums"
         />
+        <InlineDatePicker date={date} onChange={setDate} />
         <button
           onClick={() => {
             const n = parseFloat(amount);
             if (n > 0) {
-              shieldDeposit(shield.id, n);
+              shieldDeposit(shield.id, n, undefined, date.toISOString());
               toast.success(`+ ${fmt(n, currency)}`);
               setAmount("");
             }
           }}
-          className="bg-sage-900 text-sage-50 text-xs font-medium px-3 rounded-full hover:bg-sage-700 transition-colors inline-flex items-center gap-1"
+          className="bg-sage-900 text-sage-50 text-xs font-medium px-3 py-2 rounded-full hover:bg-sage-700 transition-colors inline-flex items-center gap-1"
         >
           <ArrowUp className="size-3.5" /> {t.shields.addFunds}
         </button>
@@ -107,12 +133,12 @@ function ShieldCard({ shieldId, locked = false }: { shieldId?: string; locked?: 
             const n = parseFloat(amount);
             if (n > 0) {
               if (n > shield.balance) return toast.error("Insuficiente");
-              shieldWithdraw(shield.id, n);
+              shieldWithdraw(shield.id, n, undefined, date.toISOString());
               toast(`− ${fmt(n, currency)}`);
               setAmount("");
             }
           }}
-          className="bg-blush-100 text-clay text-xs font-medium px-3 rounded-full hover:bg-blush-200 transition-colors inline-flex items-center gap-1"
+          className="bg-blush-100 text-clay text-xs font-medium px-3 py-2 rounded-full hover:bg-blush-200 transition-colors inline-flex items-center gap-1"
         >
           <ArrowDown className="size-3.5" /> {t.shields.withdraw}
         </button>
@@ -122,9 +148,9 @@ function ShieldCard({ shieldId, locked = false }: { shieldId?: string; locked?: 
         <>
           <button
             onClick={() => setShowHistory((v) => !v)}
-            className="text-[10px] uppercase tracking-widest text-sage-400 hover:text-sage-600"
+            className="text-[10px] uppercase tracking-widest text-sage-400 hover:text-wine inline-flex items-center gap-1"
           >
-            {t.shields.historyTitle}
+            {t.shields.historyTitle} <ChevronDown className={`size-3 transition-transform ${showHistory ? "rotate-180" : ""}`} />
           </button>
           {showHistory && (
             <ul className="mt-2 space-y-1 text-xs">

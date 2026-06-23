@@ -2,6 +2,21 @@ import type { BudgetLine, GroupKey, MonthBudget } from "@/store/types";
 
 export const GROUP_ORDER: GroupKey[] = ["income", "muros", "debts", "generosity", "lifestyle", "future"];
 
+/**
+ * Difference between plan and reality, with semantics that match the user's intent:
+ * - Income: real - planned (positive = exceeded, negative = shortfall)
+ * - Expenses: planned - real (positive = saved, negative = overspent)
+ */
+export function lineDiff(line: { group: GroupKey; planned: number; real: number }): number {
+  if (line.group === "income") return (line.real || 0) - (line.planned || 0);
+  return (line.planned || 0) - (line.real || 0);
+}
+
+export function groupDiff(group: GroupKey, planned: number, real: number): number {
+  if (group === "income") return real - planned;
+  return planned - real;
+}
+
 export function groupTotals(lines: BudgetLine[]) {
   const totals = Object.fromEntries(
     GROUP_ORDER.map((g) => [g, { planned: 0, real: 0 }]),

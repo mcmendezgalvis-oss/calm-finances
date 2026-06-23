@@ -24,13 +24,13 @@ interface Actions {
   copyFromPrevious: (monthKey: string) => void;
   addShield: (name: string, goal: number, kind?: "custom" | "initial" | "definitive") => string;
   removeShield: (id: string) => void;
-  shieldDeposit: (id: string, amount: number, note?: string) => void;
-  shieldWithdraw: (id: string, amount: number, note?: string) => void;
+  shieldDeposit: (id: string, amount: number, note?: string, date?: string) => void;
+  shieldWithdraw: (id: string, amount: number, note?: string, date?: string) => void;
   addDebt: (input: { name: string; initialBalance: number; minimumPayment: number }) => string;
   removeDebt: (id: string) => void;
   updateDebt: (id: string, patch: Partial<Debt>) => void;
   bankAdjust: (id: string, newBalance: number, note?: string) => void;
-  registerDebtPayment: (id: string, amount: number) => boolean;
+  registerDebtPayment: (id: string, amount: number, date?: string, note?: string) => boolean;
   setProfileName: (name: string) => void;
   setPlan: (plan: UserPlan, days?: number) => void;
   redeemCode: (code: string) => boolean;
@@ -185,27 +185,27 @@ export const useApp = create<Store>()(
 
       removeShield: (id) => set((s) => ({ shields: s.shields.filter((sh) => sh.id !== id) })),
 
-      shieldDeposit: (id, amount, note) =>
+      shieldDeposit: (id, amount, note, date) =>
         set((s) => ({
           shields: s.shields.map((sh) =>
             sh.id === id
               ? {
                   ...sh,
                   balance: sh.balance + amount,
-                  history: [...sh.history, { id: uid(), date: new Date().toISOString(), type: "deposit", amount, note } as ShieldTx],
+                  history: [...sh.history, { id: uid(), date: date ?? new Date().toISOString(), type: "deposit", amount, note } as ShieldTx],
                 }
               : sh,
           ),
         })),
 
-      shieldWithdraw: (id, amount, note) =>
+      shieldWithdraw: (id, amount, note, date) =>
         set((s) => ({
           shields: s.shields.map((sh) =>
             sh.id === id
               ? {
                   ...sh,
                   balance: Math.max(0, sh.balance - amount),
-                  history: [...sh.history, { id: uid(), date: new Date().toISOString(), type: "withdraw", amount, note } as ShieldTx],
+                  history: [...sh.history, { id: uid(), date: date ?? new Date().toISOString(), type: "withdraw", amount, note } as ShieldTx],
                 }
               : sh,
           ),
@@ -248,14 +248,23 @@ export const useApp = create<Store>()(
           }),
         })),
 
-      registerDebtPayment: (id, amount) => {
+      registerDebtPayment: (id, amount, date, note) => {
         let paidOff = false;
         set((s) => ({
           debts: s.debts.map((d) => {
             if (d.id !== id) return d;
             const newBal = Math.max(0, d.currentBalance - amount);
             if (newBal === 0 && !d.paid) paidOff = true;
-            return { ...d, currentBalance: newBal, paid: newBal === 0, paidAt: newBal === 0 ? new Date().toISOString() : d.paidAt };
+            return {
+              ...d,
+              currentBalance: newBal,
+              paid: newBal === 0,
+              paidAt: newBal === 0 ? new Date().toISOString() : d.paidAt,
+              adjustments: [
+                ...d.adjustments,
+                { id: uid(), date: date ?? new Date().toISOString(), delta: -amount, note: note ?? "Pago" } as DebtAdjustment,
+              ],
+            };
           }),
         }));
         return paidOff;

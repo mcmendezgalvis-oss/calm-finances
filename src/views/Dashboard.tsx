@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  LineChart, Line,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList, Legend,
   AreaChart, Area,
 } from "recharts";
 import { FileDown } from "lucide-react";
@@ -21,6 +20,7 @@ export function Dashboard() {
   const profile = state.profile;
   const ensureMonth = state.ensureMonth;
   const [monthKey] = useState(currentMonthKey());
+  const [periodMode, setPeriodMode] = useState<"month" | "year">("month");
 
   useEffect(() => { ensureMonth(monthKey); }, [monthKey, ensureMonth]);
 
@@ -35,11 +35,11 @@ export function Dashboard() {
     return arr;
   }, [totals, t]);
 
-  // last 6 months income vs expenses
   const evolutionData = useMemo(() => {
     const data: { month: string; income: number; expenses: number }[] = [];
     const today = new Date();
-    for (let i = 5; i >= 0; i--) {
+    const months = periodMode === "year" ? 12 : 6;
+    for (let i = months - 1; i >= 0; i--) {
       const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
       const key = monthKeyOf(d);
       const m = state.months[key];
@@ -51,23 +51,22 @@ export function Dashboard() {
       });
     }
     return data;
-  }, [state.months, lang]);
+  }, [state.months, lang, periodMode]);
 
-  const debtCurveData = useMemo(() => {
-    // Approximate debt curve from current state: month buckets vs sum of currentBalances at "now"
-    // For demo without per-payment history, show initial vs current total over the last 6 months.
-    const totalInitial = state.debts.reduce((s, d) => s + d.initialBalance, 0);
-    const totalNow = state.debts.reduce((s, d) => s + d.currentBalance, 0);
-    const steps = 6;
-    return Array.from({ length: steps }, (_, i) => ({
-      month: `T-${steps - i - 1}`,
-      total: totalInitial - ((totalInitial - totalNow) * (i / (steps - 1))),
+  const debtBars = useMemo(() => {
+    const active = state.debts.filter((d) => !d.paid).sort((a, b) => a.currentBalance - b.currentBalance);
+    const paid = state.debts.filter((d) => d.paid);
+    return [...active, ...paid].map((d, i) => ({
+      label: `D${i + 1}`,
+      name: d.name,
+      current: d.currentBalance,
+      tag: `D${i + 1}=${fmt(d.currentBalance, currency)}${d.paid ? " ✓" : ""}`,
     }));
-  }, [state.debts]);
+  }, [state.debts, currency]);
 
   const shieldsGrowthData = useMemo(() => {
     // Sum balances now; approximate growth over time by bucketing tx history
-    const months = 6;
+    const months = periodMode === "year" ? 12 : 6;
     const buckets: { month: string; total: number }[] = [];
     const today = new Date();
     for (let i = months - 1; i >= 0; i--) {
@@ -93,7 +92,7 @@ export function Dashboard() {
       if (buckets.length) buckets[buckets.length - 1].total = now;
     }
     return buckets;
-  }, [state.shields, lang]);
+  }, [state.shields, lang, periodMode]);
 
   const premium = isPremiumNow(profile);
   const greeting = profile.name ? `${t.dashboard.greeting}, ${profile.name}.` : `${t.dashboard.greeting}.`;
@@ -102,10 +101,14 @@ export function Dashboard() {
     <AppShell>
       <header className="mb-10 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-serif text-5xl text-sage-900">{greeting}</h1>
+          <h1 className="font-serif text-5xl text-wine">{greeting}</h1>
           <p className="text-sm text-sage-600 italic mt-2">{t.tagline}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="inline-flex rounded-full bg-sage-50 p-1 border border-sage-200 text-xs">
+            <button onClick={() => setPeriodMode("month")} className={`px-3 py-1.5 rounded-full ${periodMode === "month" ? "bg-wine text-white" : "text-sage-600"}`}>{t.reports.period.month}</button>
+            <button onClick={() => setPeriodMode("year")} className={`px-3 py-1.5 rounded-full ${periodMode === "year" ? "bg-wine text-white" : "text-sage-600"}`}>{t.reports.period.year}</button>
+          </div>
           <button
             disabled={!premium}
             onClick={() => generateMonthReport(state, monthKey)}
@@ -125,7 +128,7 @@ export function Dashboard() {
 
       {/* Always-free donut */}
       <section className="bg-white border border-sage-100 rounded-3xl p-6 mb-6">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-sage-500 mb-4">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-wine mb-4">
           {t.dashboard.destination}
         </h2>
         {donutData.length === 0 ? (
@@ -152,7 +155,7 @@ export function Dashboard() {
       <PremiumGate allowReadOnly>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <section className="bg-white border border-sage-100 rounded-3xl p-6">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-sage-500 mb-4">
+            <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-wine mb-4">
               {t.dashboard.evolution}
             </h2>
             <div className="h-56">
@@ -162,6 +165,7 @@ export function Dashboard() {
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#6b8e6b" }} />
                   <YAxis tick={{ fontSize: 11, fill: "#6b8e6b" }} />
                   <Tooltip formatter={(v: number) => fmt(v, currency)} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
                   <Bar dataKey="income" name={t.dashboard.income} fill="#6b8e6b" radius={[6,6,0,0]} />
                   <Bar dataKey="expenses" name={t.dashboard.expenses} fill="#c48a7a" radius={[6,6,0,0]} />
                 </BarChart>
@@ -170,24 +174,30 @@ export function Dashboard() {
           </section>
 
           <section className="bg-white border border-sage-100 rounded-3xl p-6">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-sage-500 mb-4">
+            <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-wine mb-4">
               {t.dashboard.debtCurve}
             </h2>
-            <div className="h-56">
-              <ResponsiveContainer>
-                <LineChart data={debtCurveData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e8f0e8" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#6b8e6b" }} />
-                  <YAxis tick={{ fontSize: 11, fill: "#6b8e6b" }} />
-                  <Tooltip formatter={(v: number) => fmt(v, currency)} />
-                  <Line dataKey="total" stroke="#c48a7a" strokeWidth={2.5} dot={false} type="monotone" />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+            {debtBars.length === 0 ? (
+              <p className="text-sm text-sage-500 italic py-12 text-center">{t.dashboard.noHistoryYet}</p>
+            ) : (
+              <div style={{ height: Math.max(180, debtBars.length * 44) }}>
+                <ResponsiveContainer>
+                  <BarChart data={debtBars} layout="vertical" margin={{ left: 16, right: 96 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e8f0e8" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 11, fill: "#6b8e6b" }} />
+                    <YAxis type="category" dataKey="label" tick={{ fontSize: 11, fill: "#722F37", fontWeight: 600 }} width={36} />
+                    <Tooltip formatter={(v: number) => fmt(v, currency)} labelFormatter={(l, p) => (p && p[0] && (p[0] as { payload?: { name?: string } }).payload?.name) || String(l)} />
+                    <Bar dataKey="current" fill="#722F37" radius={[0, 6, 6, 0]}>
+                      <LabelList dataKey="tag" position="right" style={{ fontSize: 11, fill: "#722F37", fontWeight: 600 }} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </section>
 
           <section className="bg-white border border-sage-100 rounded-3xl p-6 lg:col-span-2">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-sage-500 mb-4">
+            <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-wine mb-4">
               {t.dashboard.shieldsGrowth}
             </h2>
             <div className="h-56">
