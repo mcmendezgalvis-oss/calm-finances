@@ -128,6 +128,7 @@ function syncLinkedLines(state: AppState, monthKey: string): MonthBudget {
     cleaned.push(l);
   }
   for (const shield of state.shields) {
+    if (shield.archived && shield.id !== EMERGENCY_FUND_ID) continue;
     if (!seenShield.has(shield.id)) {
       cleaned.push({
         id: uid(), group: "future", name: shield.name,
