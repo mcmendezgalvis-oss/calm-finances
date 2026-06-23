@@ -2,8 +2,9 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type {
   AppState, BudgetLine, Debt, DebtAdjustment, GroupKey, MonthBudget,
-  ShieldTx, UserPlan,
+  ShieldTx, Trophy, TrophyKind, UserPlan,
 } from "./types";
+import { EMERGENCY_FUND_ID, emergencyLevels, emergencyLevelReached, groupTotals, muros4Total } from "@/lib/finance";
 
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
@@ -18,6 +19,7 @@ export function emptyMonth(monthKey: string): MonthBudget {
 
 interface Actions {
   ensureMonth: (monthKey: string) => MonthBudget;
+  ensureEmergencyFund: () => void;
   addLine: (monthKey: string, group: GroupKey, name?: string) => string;
   updateLine: (monthKey: string, lineId: string, patch: Partial<BudgetLine>) => void;
   removeLine: (monthKey: string, lineId: string) => void;
@@ -34,6 +36,8 @@ interface Actions {
   setProfileName: (name: string) => void;
   setPlan: (plan: UserPlan, days?: number) => void;
   redeemCode: (code: string) => boolean;
+  awardTrophy: (kind: TrophyKind, label: string, contextId?: string, monthKey?: string) => Trophy | null;
+  checkMonthClose: (monthKey: string) => Trophy[];
   resetAll: () => void;
 }
 
@@ -44,6 +48,7 @@ const initialState: AppState = {
   months: {},
   shields: [],
   debts: [],
+  trophies: [],
 };
 
 const REDEEM_CODES = new Set(["CALMA2026", "FINANZAS30", "RUTACOMPLETA"]);
@@ -57,24 +62,55 @@ function previousMonthKey(monthKey: string): string {
 function syncLinkedLines(state: AppState, monthKey: string): MonthBudget {
   const month = state.months[monthKey] ?? emptyMonth(monthKey);
   const lines = [...month.lines];
+  // Dedupe linked lines defensively
+  const seenShield = new Set<string>();
+  const seenDebt = new Set<string>();
+  const cleaned: BudgetLine[] = [];
+  for (const l of lines) {
+    if (l.linkedShieldId) {
+      if (seenShield.has(l.linkedShieldId)) continue;
+      seenShield.add(l.linkedShieldId);
+    }
+    if (l.linkedDebtId) {
+      if (seenDebt.has(l.linkedDebtId)) continue;
+      seenDebt.add(l.linkedDebtId);
+    }
+    cleaned.push(l);
+  }
   for (const shield of state.shields) {
-    if (!lines.find((l) => l.linkedShieldId === shield.id)) {
-      lines.push({
+    if (!seenShield.has(shield.id)) {
+      cleaned.push({
         id: uid(), group: "future", name: shield.name,
         planned: 0, real: 0, linkedShieldId: shield.id,
+        permanent: shield.id === EMERGENCY_FUND_ID,
       });
+      seenShield.add(shield.id);
+    } else if (shield.id === EMERGENCY_FUND_ID) {
+      // Ensure permanence flag on existing line
+      const idx = cleaned.findIndex((l) => l.linkedShieldId === EMERGENCY_FUND_ID);
+      if (idx >= 0 && !cleaned[idx].permanent) cleaned[idx] = { ...cleaned[idx], permanent: true };
     }
   }
-  for (const debt of state.debts) {
-    if (debt.paid) continue;
-    if (!lines.find((l) => l.linkedDebtId === debt.id)) {
-      lines.push({
+  // Snowball order: active debts sorted by current balance asc
+  const activeDebts = state.debts.filter((d) => !d.paid).sort((a, b) => a.currentBalance - b.currentBalance);
+  for (const debt of activeDebts) {
+    if (!seenDebt.has(debt.id)) {
+      cleaned.push({
         id: uid(), group: "debts", name: debt.name,
         planned: debt.minimumPayment, real: 0, linkedDebtId: debt.id,
       });
+      seenDebt.add(debt.id);
     }
   }
-  return { monthKey, lines };
+  // Reorder debt lines per snowball
+  const order = new Map(activeDebts.map((d, i) => [d.id, i]));
+  cleaned.sort((a, b) => {
+    if (a.linkedDebtId && b.linkedDebtId) {
+      return (order.get(a.linkedDebtId) ?? 99) - (order.get(b.linkedDebtId) ?? 99);
+    }
+    return 0;
+  });
+  return { monthKey, lines: cleaned };
 }
 
 export const useApp = create<Store>()(
