@@ -59,6 +59,9 @@
   --color-clay: var(--clay);
   --color-butter: var(--butter);
   --color-terracotta: var(--terracotta);
+  --color-wine: var(--wine);
+  --color-wine-50: var(--wine-50);
+  --color-wine-100: var(--wine-100);
   --font-serif: "Cormorant Garamond", ui-serif, Georgia, serif;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
@@ -83,6 +86,11 @@
   --clay: #8c736d;
   --terracotta: #c48a7a;
   --butter: #fbf4d8;
+
+  /* Wine accent for section titles */
+  --wine: #722F37;
+  --wine-50: #f7eef0;
+  --wine-100: #ecd6da;
 
   /* shadcn semantic tokens, mapped to sage palette */
   --background: #f4f7f4;
