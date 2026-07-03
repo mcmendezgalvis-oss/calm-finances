@@ -128,11 +128,13 @@ export function ReportsView() {
         for (const g of GROUP_ORDER) {
           const lines = m.lines.filter((l) => l.group === g);
           for (const l of lines) {
-            rows.push([g, l.name || "—", fmt(l.planned, currency), fmt(l.real, currency)]);
+            const diff = l.planned - l.real;
+            rows.push([g, l.name || "—", fmt(l.planned, currency), fmt(l.real, currency), (diff >= 0 ? "+" : "") + fmt(diff, currency)]);
             tp += l.planned; tr += l.real;
           }
         }
-        return { cols: ["Rubro", "Concepto", "Plan", "Real"], rows, totals: ["TOTAL", "", fmt(tp, currency), fmt(tr, currency)] };
+        const td = tp - tr;
+        return { cols: ["Rubro", "Concepto", "Plan", "Real", "Mi balance"], rows, totals: ["TOTAL", "", fmt(tp, currency), fmt(tr, currency), (td >= 0 ? "+" : "") + fmt(td, currency)] };
       }
       const rows: { label: string; planned: number; real: number }[] = [];
       let tp = 0, tr = 0;
@@ -153,7 +155,15 @@ export function ReportsView() {
         rows.push({ label: isFuture ? `${k} (proyección)` : k, planned, real });
         tp += planned; tr += real;
       }
-      return { cols: ["Mes", "Plan", "Real"], rows: rows.map((r) => [r.label, fmt(r.planned, currency), fmt(r.real, currency)]), totals: ["TOTAL", fmt(tp, currency), fmt(tr, currency)] };
+      const td2 = tp - tr;
+      return {
+        cols: ["Mes", "Plan", "Real", "Mi balance"],
+        rows: rows.map((r) => {
+          const d = r.planned - r.real;
+          return [r.label, fmt(r.planned, currency), fmt(r.real, currency), (d >= 0 ? "+" : "") + fmt(d, currency)];
+        }),
+        totals: ["TOTAL", fmt(tp, currency), fmt(tr, currency), (td2 >= 0 ? "+" : "") + fmt(td2, currency)],
+      };
     }
     if (kind === "debt" && debtId) {
       const debt = state.debts.find((d) => d.id === debtId);
