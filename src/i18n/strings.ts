@@ -149,7 +149,7 @@ export const dict: Record<Lang, DictShape> = {
     },
     budget: {
       title: "Presupuesto",
-      tabs: { plan: "Mi Plan", real: "Mi Realidad", diff: "Mi Calma" },
+      tabs: { plan: "Mi Plan", real: "Mi Realidad", diff: "Mi Balance" },
       unassigned: "Dinero Sin Asignar",
       assignNow: "Asignar ahora",
       zeroBased: "Base Cero",
@@ -408,7 +408,7 @@ export const dict: Record<Lang, DictShape> = {
     },
     budget: {
       title: "Budget",
-      tabs: { plan: "My Plan", real: "My Reality", diff: "My Calm" },
+      tabs: { plan: "My Plan", real: "My Reality", diff: "My Balance" },
       unassigned: "Money to Assign",
       assignNow: "Assign now",
       zeroBased: "Zero-Based",
