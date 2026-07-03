@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { TrophiesView } from "@/views/TrophiesView";
 
-export const Route = createFileRoute("/logros")({
+export const Route = createFileRoute("/_authenticated/logros")({
   head: () => ({
     meta: [
       { title: "Logros · Finanzas en Calma" },

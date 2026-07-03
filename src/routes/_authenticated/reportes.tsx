@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ReportsView } from "@/views/ReportsView";
 
-export const Route = createFileRoute("/reportes")({
+export const Route = createFileRoute("/_authenticated/reportes")({
   head: () => ({
     meta: [
       { title: "Reportes · Finanzas en Calma" },

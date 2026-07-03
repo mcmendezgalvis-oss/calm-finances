@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import type {
   AppState, BudgetLine, Debt, DebtAdjustment, GroupKey, MonthBudget,
   ShieldTx, Trophy, TrophyKind, UserPlan,
@@ -165,8 +164,7 @@ function syncLinkedLines(state: AppState, monthKey: string): MonthBudget {
 }
 
 export const useApp = create<Store>()(
-  persist(
-    (set, get) => ({
+  (set, get) => ({
       ...initialState,
 
       ensureMonth: (monthKey) => {
@@ -681,8 +679,6 @@ export const useApp = create<Store>()(
         return { ok: true, notice };
       },
     }),
-    { name: "fec.store.v1" },
-  ),
 );
 
 export function isPremiumNow(profile: { plan: UserPlan; premiumUntil?: string }) {

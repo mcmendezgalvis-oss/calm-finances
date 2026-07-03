@@ -1,15 +1,24 @@
-import { Link, useLocation } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { ReactNode, useEffect, useState } from "react";
-import { LayoutDashboard, Wallet, Shield, Link2Off, Settings, Menu, X, FileText, Trophy } from "lucide-react";
+import { LayoutDashboard, Wallet, Shield, Link2Off, Settings, Menu, X, FileText, Trophy, LogOut } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useApp, daysLeft, isPremiumNow } from "@/store/useApp";
 import { PWABanner } from "./PWABanner";
+import { supabase } from "@/integrations/supabase/client";
+import { stopSync } from "@/lib/sync";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { t, lang, setLang } = useI18n();
   const profile = useApp((s) => s.profile);
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+
+  async function handleSignOut() {
+    stopSync();
+    await supabase.auth.signOut();
+    navigate({ to: "/auth", replace: true });
+  }
 
   useEffect(() => setMobileOpen(false), [location.pathname]);
 
@@ -103,6 +112,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             <p className="text-sm text-sage-700 mt-1">
               {premium ? t.settings.planPremium : t.settings.planFree}
             </p>
+            <button
+              onClick={handleSignOut}
+              className="mt-4 inline-flex items-center gap-2 text-xs text-sage-600 hover:text-sage-900"
+            >
+              <LogOut className="size-3.5" /> Cerrar sesión
+            </button>
           </div>
         </aside>
 
