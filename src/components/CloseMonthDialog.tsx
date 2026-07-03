@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Sprout, Shield as ShieldIcon, ArrowRight, X, Plus } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Sprout, Shield as ShieldIcon, ArrowRight, X, Plus, AlertTriangle, Link2Off } from "lucide-react";
 import { useApp, type SurplusAllocation, isPremiumNow } from "@/store/useApp";
 import { useI18n } from "@/i18n/I18nProvider";
 import { fmt, EMERGENCY_FUND_ID } from "@/lib/finance";
@@ -66,11 +67,36 @@ export function CloseMonthDialog({
 
         {negative && (
           <>
-            <p className="text-sm text-clay mb-4 leading-relaxed">{t.closeMonth.blockedNegative}</p>
-            <p className="text-xs text-sage-500 mb-4">Balance: {fmt(balance, currency)}</p>
-            <button onClick={onClose} className="w-full bg-sage-100 text-sage-700 py-2.5 rounded-full font-medium">
-              {t.shields.cancel}
-            </button>
+            <div className="bg-blush-100 border border-blush-200 rounded-2xl p-4 mb-4 flex items-start gap-3">
+              <AlertTriangle className="size-5 text-clay shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs uppercase tracking-widest text-clay font-semibold mb-1">
+                  {t.closeMonth.overdrawnTitle}
+                </p>
+                <p className="font-serif text-2xl text-clay tabular-nums">{fmt(balance, currency)}</p>
+              </div>
+            </div>
+            <p className="text-sm text-sage-700 mb-4 leading-relaxed">
+              {t.closeMonth.overdrawnCopy}
+            </p>
+            <Link
+              to="/deudas"
+              onClick={onClose}
+              className="inline-flex items-center gap-2 text-xs text-wine bg-wine-50 border border-wine-100 hover:bg-wine-100 px-4 py-2 rounded-full font-medium transition-colors mb-4"
+            >
+              <Link2Off className="size-3.5" /> {t.closeMonth.overdrawnCta}
+            </Link>
+            <div className="flex gap-2">
+              <button onClick={onClose} className="flex-1 bg-sage-100 text-sage-700 py-2.5 rounded-full font-medium text-sm">
+                {t.shields.cancel}
+              </button>
+              <button
+                onClick={submit}
+                className="flex-1 bg-clay text-white py-2.5 rounded-full font-medium text-sm hover:opacity-90"
+              >
+                {t.closeMonth.confirmOverdrawn}
+              </button>
+            </div>
           </>
         )}
 
