@@ -1,66 +1,76 @@
-## Ajustes solicitados (9 puntos)
+## Objetivo
 
-### 1. "+ Crear nueva meta…" en modal de Sobrante
-**Archivo:** `src/components/CloseMonthDialog.tsx`
-- En el `<select>` de la opción "shield", añadir al final `<option value="__new__">+ Crear nueva meta…</option>`.
-- Al elegirla:
-  - **Premium**: cerrar el diálogo de cierre, abrir el modal detallado de creación de meta (reutilizar el componente existente en `ShieldsView.tsx`, extraído a `NewShieldDialog.tsx` si está inline). Tras crearla, regresar al flujo: precargar el nuevo shieldId y monto = sobrante, confirmar cierre.
-  - **Free**: mostrar inline un input simple (nombre) + botón "Crear y asignar"; llama a `addShield({ name, goal: amount, kind: "custom" })` y continúa con la asignación.
-- Comprobar plan con `useApp(s=>s.profile.plan)`. Si Free y ya alcanzó el límite de metas (regla actual), mostrar mensaje y empujar upgrade.
+Migrar la app de almacenamiento local (Zustand + localStorage) a Lovable Cloud (Supabase gestionado), con autenticación, RLS por usuario, y migración automática de datos existentes al primer login.
 
-### 2. Stacking por saldo (mayor abajo) en `DebtsBarChart`
-**Archivo:** `src/components/charts/DebtsBarChart.tsx`
-- Ordenar `debts` por `currentBalance` desc antes del map de `<Bar>`. Recharts apila en orden de declaración (el primero queda en la base), así la deuda mayor queda abajo y la más pequeña arriba ("la cima cae primero").
-- Mantener `stackId="d"` y colores estables por `id` (usar índice del array ordenado para PALETTE, o un map id→color para consistencia entre meses).
+---
 
-### 3. Protección en "Copiar presupuesto del mes anterior"
-**Archivo:** `src/store/useApp.ts` — `copyFromPrevious`
-- Al copiar líneas del mes previo: **excluir** líneas cuyo `name` coincida con la etiqueta "Sobrante mes anterior" (i18n: `t.budget.surplusCarryName` / equivalente actual) o que estén marcadas como auto-carry (si se introduce flag).
-- Al insertar en el mes destino: **no** tocar las líneas existentes; si ya existe una "Sobrante mes anterior" en el destino, conservarla intacta y anexar el resto debajo.
-- Cubrir lo mismo para ingresos regulares (ya se copian; sólo añadir la exclusión específica del sobrante).
+## 1. Habilitar Lovable Cloud
 
-### 4. Barra de progreso de deudas = capital pagado
-**Archivo:** `src/views/DebtsView.tsx`
-- Cambiar el cálculo del ancho a `pct = clamp01((initialBalance - currentBalance) / initialBalance) * 100`.
-- Tooltip ya muestra "Capital pagado" (punto previo aprobado). Verificar coherencia con `initialBalance > 0` (si 0, mostrar 0%).
+Provisiona backend gestionado automáticamente (no se usa el project ID externo `kygtkvuykeiihovkzcak` — Lovable Cloud crea el suyo). Los secretos `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` y `VITE_SUPABASE_*` quedan disponibles.
 
-### 5. Unificación de movimientos en `/reportes`
-**Archivo:** `src/views/ReportsView.tsx` (y helpers en `src/lib/finance.ts` si aplica)
-- **Detalle por Deuda**: feed cronológico que combine:
-  - `debt.adjustments` (pagos manuales con delta<0 y ajustes con delta cualquiera; etiquetar por signo y `note`).
-  - Líneas del presupuesto vinculadas (`BudgetLine.linkedDebtId`) con `real > 0` de cada mes cerrado/abierto → registrarlos como evento "Abono desde presupuesto" con fecha = fin del `monthKey`.
-- **Movimientos por Fondo**: combinar `shield.history` + líneas con `linkedShieldId` y `real > 0` (depósitos automáticos) + asignaciones de cierre de mes (`CloseMonthDialog` ya genera `ShieldTx`; verificar).
-- Ordenar por fecha asc/desc; columnas: Fecha, Tipo, Monto, Nota.
+## 2. Esquema de base de datos (migración SQL)
 
-### 6. Selección libre de meses futuros en `/reportes`
-**Archivo:** `src/views/ReportsView.tsx` (+ `PeriodSelector.tsx` si limita)
-- Eliminar cualquier `max={currentMonthKey()}` o `disabled` por fecha futura en el selector de mes/año. Permitir cualquier mes/año.
+Tablas en `public`, todas con `user_id uuid references auth.users(id) on delete cascade`, RLS activo y policies `auth.uid() = user_id`, más `GRANT` correspondientes.
 
-### 7. Reportes de meses futuros (proyecciones)
-**Archivos:** `src/views/ReportsView.tsx`, `src/lib/pdf.ts`
-- Si el `monthKey` seleccionado no existe en `state.months`, construir un mes virtual con líneas vacías y `real = 0` (sin escribir al estado).
-- Mostrar tabla con columnas Planificado (del mes solicitado si existe; si no, 0) y Real = $0.00; no colapsar UI.
-- En `lib/pdf.ts`: aceptar el mes virtual y renderizar igual. Etiquetar el encabezado del PDF como "Proyección" cuando `monthKey > currentMonthKey()`.
+```
+profiles              (id=user_id PK, name, plan, premium_until, currency, language, created_at)
+months                (id, user_id, month_key unique per user, closed, closed_at, snapshot jsonb, surplus_carry_forward_id)
+budget_lines          (id, user_id, month_id fk, group, name, planned, real, linked_shield_id, linked_debt_id, permanent, sort_order)
+shields               (id, user_id, name, kind, goal, balance, created_at, archived)
+shield_tx             (id, user_id, shield_id fk, date, type, amount, note)
+debts                 (id, user_id, name, initial_balance, minimum_payment, current_balance, paid, created_at, paid_at)
+debt_adjustments      (id, user_id, debt_id fk, date, delta, note)
+trophies              (id, user_id, kind, label, earned_at, context_id, month_key)
+```
 
-### 8. Exportar CSV en `/reportes`
-**Archivos:** `src/views/ReportsView.tsx`, nuevo `src/lib/csv.ts`
-- Añadir botón "Exportar CSV" junto a "Descargar PDF".
-- `csv.ts`: helper `toCSV(rows, headers)` con escape de comas/comillas/salto de línea (RFC 4180), BOM UTF-8 para Excel.
-- Exportar exactamente los datos visibles (mismas filas/orden/filtros) con columnas: Fecha, Tipo, Monto, Nota + fila final "Total" con la suma de Monto.
-- Nombre de archivo: `reporte-{seccion}-{monthKey}.csv`.
+Trigger `handle_new_user()` en `auth.users` → inserta `profiles` con `name` desde metadata, `plan='free'`, `currency='EUR'`.
 
-### 9. Saludo con exclamaciones
-**Archivo:** `src/i18n/strings.ts`
-- ES: `"¡Hola, {name}! Me encanta que estés por aquí..."` y fallback `"¡Hola! Me encanta que estés por aquí..."`.
-- EN equivalente con signos (`"Hi, {name}! ..."`).
+## 3. Autenticación
 
-### Archivos
+- **`/auth`** ruta pública: pestañas Login / Registro. Campos email + password (+ name en registro). `signUp` con `emailRedirectTo: window.location.origin`. Estados de carga, toasts para errores (email en uso, password débil, credenciales inválidas).
+- **`/auth/forgot`**: formulario email → `resetPasswordForEmail(email, { redirectTo: origin + '/auth/reset' })`.
+- **`/auth/reset`**: público, detecta `type=recovery` en URL hash, formulario nueva contraseña → `updateUser({ password })`.
+- **`_authenticated` layout** (gestionado por integración): protege `/`, `/presupuesto`, `/escudos`, `/deudas`, `/reportes`, `/logros`, `/ajustes`. Todas las rutas actuales se mueven bajo `_authenticated/`.
+- **`__root.tsx`**: `onAuthStateChange` filtrado (SIGNED_IN/OUT/USER_UPDATED) → `router.invalidate()` + `queryClient.invalidateQueries()`.
+- **AppShell**: mostrar email/nombre del usuario + botón "Cerrar sesión" (con `cancelQueries` → `clear` → `signOut` → `navigate /auth replace`).
 
-**Modificados:** `src/components/CloseMonthDialog.tsx`, `src/components/charts/DebtsBarChart.tsx`, `src/store/useApp.ts`, `src/views/DebtsView.tsx`, `src/views/ReportsView.tsx`, `src/views/ShieldsView.tsx` (extraer/reutilizar diálogo de creación), `src/lib/pdf.ts`, `src/i18n/strings.ts`, posiblemente `src/components/PeriodSelector.tsx`.
+## 4. Capa de datos (Zustand → Supabase)
 
-**Nuevos:** `src/lib/csv.ts`, posiblemente `src/components/NewShieldDialog.tsx` (si hay que extraerlo desde `ShieldsView`).
+Refactor de `src/store/useApp.ts`: el store sigue siendo la fuente de estado en memoria (para render optimista), pero cada acción escribe a Supabase y las lecturas iniciales vienen de queries.
 
-### Notas
-- Sin cambios en tipos del store (todo se deriva de datos existentes).
-- El feed unificado de reportes se computa en memoria al renderizar; no se persisten duplicados.
-- Proyecciones no mutan el estado; sólo se renderizan.
+- Nuevo módulo `src/lib/data/*.ts` con funciones tipadas para cada tabla (fetchAll, upsert, delete) usando el cliente browser `@/integrations/supabase/client`.
+- Hook `useSyncApp()` en el root de `_authenticated`: al montar, carga todas las tablas del usuario en paralelo (`Promise.all`) y hidrata el store.
+- Cada acción del store (`upsertLine`, `addShield`, `addDebt`, `closeMonth`, etc.) pasa a `async` y emite escritura Supabase inmediatamente después de actualizar el estado local (write-through). Errores → toast + rollback local.
+- **Realtime**: suscripción a los canales de las tablas del usuario (`filter: user_id=eq.${uid}`) para sincronizar cambios de otras pestañas/dispositivos → merge en el store.
+
+## 5. Migración automática al primer login
+
+Al hidratar por primera vez (perfil recién creado sin datos y localStorage tiene `finanzas-en-calma-store`):
+
+1. Detectar snapshot local.
+2. Confirmar con toast/modal "Importar tus datos guardados en este dispositivo".
+3. Escribir en batch (transacciones lógicas) todos los meses, líneas, escudos, tx, deudas, ajustes, trofeos con el `user_id` actual.
+4. Marcar `profiles.migrated_at` para no repetir.
+5. Vaciar `localStorage` de la clave `finanzas-en-calma-store` tras éxito.
+
+## 6. Ajustes UI menores
+
+- Saludo dinámico ya usa `profile.name`; ahora ese nombre viene de `profiles` en Supabase.
+- Redeem code (`CALMA2026`, etc.) sigue funcionando pero ahora `UPDATE profiles SET plan='premium', premium_until=...`.
+- Reset all: borra filas del usuario (RLS lo limita naturalmente), no toca `auth.users`.
+
+---
+
+## Detalles técnicos
+
+- **Cliente**: `supabase` de `@/integrations/supabase/client` para todo (browser + realtime). No se necesitan server functions porque toda la lógica es del usuario autenticado y RLS filtra.
+- **Redirect URLs**: agregar `window.location.origin`, `.../auth/reset` en Supabase Auth.
+- **Providers sociales**: no se incluyen (usuario solo pidió email/password).
+- **Rutas nuevas**: `src/routes/auth.tsx`, `src/routes/auth.forgot.tsx`, `src/routes/auth.reset.tsx`, `src/routes/_authenticated/route.tsx` (auto), y mover `index.tsx`, `presupuesto.tsx`, `escudos.tsx`, `deudas.tsx`, `reportes.tsx`, `logros.tsx`, `ajustes.tsx` bajo `_authenticated/`.
+- **Tipos**: `src/integrations/supabase/types.ts` autogenerado.
+
+## Archivos
+
+**Nuevos**: migración SQL, `src/lib/data/{profiles,months,lines,shields,debts,trophies}.ts`, `src/lib/data/sync.ts`, `src/lib/data/migrate-local.ts`, `src/routes/auth.tsx`, `src/routes/auth.forgot.tsx`, `src/routes/auth.reset.tsx`, `src/components/AuthForm.tsx`, `src/hooks/useRealtimeSync.ts`.
+
+**Modificados**: `src/store/useApp.ts` (acciones async + write-through), `src/components/AppShell.tsx` (user info + logout), `src/routes/__root.tsx` (auth listener), `src/views/SettingsView.tsx` (redeem via Supabase), `src/views/Dashboard.tsx` (usar profile.name de Supabase); movimiento de rutas bajo `_authenticated/`.
