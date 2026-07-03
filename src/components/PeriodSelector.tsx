@@ -1,21 +1,14 @@
-import { useState } from "react";
-import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { es as esLocale, enUS } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useI18n } from "@/i18n/I18nProvider";
 
-export type PeriodMode = "month" | "year" | "custom";
+export type PeriodMode = "month" | "year";
 
 export interface PeriodValue {
   mode: PeriodMode;
   monthKey?: string; // YYYY-MM
   year?: number;
-  from?: Date;
-  to?: Date;
 }
 
 function toMonthKey(d: Date) {
@@ -31,8 +24,6 @@ export function PeriodSelector({
 }) {
   const { lang, t } = useI18n();
   const locale = lang === "es" ? esLocale : enUS;
-  const [openFrom, setOpenFrom] = useState(false);
-  const [openTo, setOpenTo] = useState(false);
 
   const today = new Date();
   // Allow selecting future months (proyecciones) as well as recent history.
@@ -46,26 +37,13 @@ export function PeriodSelector({
 
   const setMode = (mode: PeriodMode) => {
     if (mode === "month") onChange({ mode, monthKey: value.monthKey ?? months[0].key });
-    else if (mode === "year") onChange({ mode, year: value.year ?? today.getFullYear() });
-    else onChange({ mode, from: value.from ?? new Date(today.getFullYear(), today.getMonth(), 1), to: value.to ?? today });
-  };
-
-  const setShortcut = (key: "last30" | "thisMonth" | "lastMonth" | "ytd") => {
-    const now = new Date();
-    let from: Date; let to = now;
-    if (key === "last30") { from = new Date(now.getTime() - 30 * 86400_000); }
-    else if (key === "thisMonth") { from = new Date(now.getFullYear(), now.getMonth(), 1); }
-    else if (key === "lastMonth") {
-      from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      to = new Date(now.getFullYear(), now.getMonth(), 0);
-    } else { from = new Date(now.getFullYear(), 0, 1); }
-    onChange({ mode: "custom", from, to });
+    else onChange({ mode, year: value.year ?? today.getFullYear() });
   };
 
   return (
     <div className="space-y-3">
       <div className="inline-flex rounded-full bg-sage-50 p-1 border border-sage-200 text-xs">
-        {(["month", "year", "custom"] as PeriodMode[]).map((m) => (
+        {(["month", "year"] as PeriodMode[]).map((m) => (
           <button
             key={m}
             onClick={() => setMode(m)}
@@ -99,53 +77,6 @@ export function PeriodSelector({
         >
           {years.map((y) => <option key={y} value={y}>{y}</option>)}
         </select>
-      )}
-
-      {value.mode === "custom" && (
-        <div className="space-y-2">
-          <div className="flex flex-wrap gap-2">
-            {(["last30", "thisMonth", "lastMonth", "ytd"] as const).map((k) => (
-              <button
-                key={k}
-                onClick={() => setShortcut(k)}
-                className="px-3 py-1.5 text-xs rounded-full bg-wine-50 text-wine border border-wine-100 hover:bg-wine-100 transition-colors"
-              >
-                {t.reports.shortcuts[k]}
-              </button>
-            ))}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <Popover open={openFrom} onOpenChange={setOpenFrom}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="h-12 justify-start text-left font-normal">
-                  <CalendarIcon className="mr-2 size-4" />
-                  <span className="text-xs uppercase tracking-widest text-sage-500 mr-2">{t.reports.from}</span>
-                  <span className="tabular-nums">{value.from ? format(value.from, "PP", { locale }) : "—"}</span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
-                <Calendar mode="single" selected={value.from} onSelect={(d) => { if (d) { onChange({ ...value, from: d, to: value.to && value.to < d ? d : value.to }); setOpenFrom(false); } }} locale={locale} initialFocus className="p-3 pointer-events-auto" />
-              </PopoverContent>
-            </Popover>
-            <Popover open={openTo} onOpenChange={setOpenTo}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="h-12 justify-start text-left font-normal">
-                  <CalendarIcon className="mr-2 size-4" />
-                  <span className="text-xs uppercase tracking-widest text-sage-500 mr-2">{t.reports.to}</span>
-                  <span className="tabular-nums">{value.to ? format(value.to, "PP", { locale }) : "—"}</span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
-                <Calendar mode="single" selected={value.to} onSelect={(d) => { if (d) { onChange({ ...value, to: d }); setOpenTo(false); } }} disabled={(d) => (value.from ? d < value.from : false)} locale={locale} initialFocus className="p-3 pointer-events-auto" />
-              </PopoverContent>
-            </Popover>
-          </div>
-          {value.from && value.to && (
-            <p className="text-xs text-sage-500 italic">
-              {format(value.from, "PPP", { locale })} – {format(value.to, "PPP", { locale })}
-            </p>
-          )}
-        </div>
       )}
     </div>
   );
