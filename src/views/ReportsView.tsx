@@ -116,6 +116,24 @@ export function ReportsView() {
         keys.push(`${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}`);
         start.setMonth(start.getMonth() + 1);
       }
+      // Single-month filter → detailed item-by-item view.
+      if (keys.length === 1) {
+        const k = keys[0];
+        const m = state.months[k];
+        if (!m) {
+          return { cols: ["Rubro", "Concepto", "Plan", "Real"], rows: [], totals: ["TOTAL", "", fmt(0, currency), fmt(0, currency)] };
+        }
+        const rows: string[][] = [];
+        let tp = 0, tr = 0;
+        for (const g of GROUP_ORDER) {
+          const lines = m.lines.filter((l) => l.group === g);
+          for (const l of lines) {
+            rows.push([g, l.name || "—", fmt(l.planned, currency), fmt(l.real, currency)]);
+            tp += l.planned; tr += l.real;
+          }
+        }
+        return { cols: ["Rubro", "Concepto", "Plan", "Real"], rows, totals: ["TOTAL", "", fmt(tp, currency), fmt(tr, currency)] };
+      }
       const rows: { label: string; planned: number; real: number }[] = [];
       let tp = 0, tr = 0;
       const currKey = currentMonthKey();
@@ -168,7 +186,7 @@ export function ReportsView() {
     if (!preview) return;
     const rows: (string | number)[][] = [preview.cols, ...preview.rows, preview.totals];
     const tag = kind === "budget" ? "presupuesto" : kind === "debt" ? "deuda" : "fondo";
-    const stamp = period.mode === "month" ? (period.monthKey ?? "") : period.mode === "year" ? String(period.year ?? "") : `${period.from?.toISOString().slice(0,10)}_${period.to?.toISOString().slice(0,10)}`;
+    const stamp = period.mode === "month" ? (period.monthKey ?? "") : String(period.year ?? "");
     downloadCSV(`reporte-${tag}-${stamp}.csv`, rows);
   };
 
