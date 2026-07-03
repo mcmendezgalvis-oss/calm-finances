@@ -34,6 +34,8 @@ interface Actions {
   updateLine: (monthKey: string, lineId: string, patch: Partial<BudgetLine>) => void;
   removeLine: (monthKey: string, lineId: string) => void;
   copyFromPrevious: (monthKey: string) => void;
+  resetPlan: (monthKey: string) => void;
+  resetActual: (monthKey: string) => void;
   addShield: (name: string, goal: number, kind?: "custom" | "initial" | "definitive") => string | null;
   removeShield: (id: string, options?: { force?: boolean }) => boolean;
   archiveShield: (id: string) => void;
@@ -41,11 +43,15 @@ interface Actions {
   renameShield: (id: string, name: string) => boolean;
   shieldDeposit: (id: string, amount: number, note?: string, date?: string) => void;
   shieldWithdraw: (id: string, amount: number, note?: string, date?: string) => void;
+  editShieldTx: (shieldId: string, txId: string, patch: { amount?: number; date?: string; note?: string }) => void;
+  deleteShieldTx: (shieldId: string, txId: string) => void;
   addDebt: (input: { name: string; initialBalance: number; minimumPayment: number }) => string | null;
   removeDebt: (id: string) => void;
   updateDebt: (id: string, patch: Partial<Debt>) => void;
   bankAdjust: (id: string, newBalance: number, note?: string) => void;
   registerDebtPayment: (id: string, amount: number, date?: string, note?: string) => boolean;
+  editDebtAdjustment: (debtId: string, adjId: string, patch: { delta?: number; date?: string; note?: string }) => void;
+  deleteDebtAdjustment: (debtId: string, adjId: string) => void;
   setProfileName: (name: string) => void;
   setPlan: (plan: UserPlan, days?: number) => void;
   redeemCode: (code: string) => boolean;
@@ -236,7 +242,7 @@ export const useApp = create<Store>()(
                       balance: sh.balance + delta,
                       history: [
                         ...sh.history,
-                        { id: uid(), date: new Date().toISOString(), type: "deposit", amount: delta, note: "Aporte desde presupuesto" } as ShieldTx,
+                        { id: uid(), date: new Date().toISOString(), type: delta >= 0 ? "deposit" : "withdraw", amount: Math.abs(delta), note: "Aporte desde presupuesto", source: "budget" } as ShieldTx,
                       ],
                     }
                   : sh,
@@ -264,6 +270,10 @@ export const useApp = create<Store>()(
                   currentBalance: newBal,
                   paid: justPaid ? true : dbt.paid,
                   paidAt: justPaid ? new Date().toISOString() : dbt.paidAt,
+                  adjustments: [
+                    ...dbt.adjustments,
+                    { id: uid(), date: new Date().toISOString(), delta: -delta, note: "Abono desde presupuesto", source: "budget" } as DebtAdjustment,
+                  ],
                 };
               });
             }
@@ -316,6 +326,22 @@ export const useApp = create<Store>()(
           return { months: { ...s.months, [monthKey]: { monthKey, lines: merged, ...(existing ? { closed: existing.closed, closedAt: existing.closedAt, snapshot: existing.snapshot, surplusCarryForwardId: existing.surplusCarryForwardId } : {}) } } };
         });
       },
+
+      resetPlan: (monthKey) =>
+        set((s) => {
+          const month = s.months[monthKey];
+          if (!month || month.closed) return s;
+          const lines = month.lines.map((l) => ({ ...l, planned: 0 }));
+          return { months: { ...s.months, [monthKey]: { ...month, lines } } };
+        }),
+
+      resetActual: (monthKey) =>
+        set((s) => {
+          const month = s.months[monthKey];
+          if (!month || month.closed) return s;
+          const lines = month.lines.map((l) => ({ ...l, real: 0 }));
+          return { months: { ...s.months, [monthKey]: { ...month, lines } } };
+        }),
 
       addShield: (name, goal, kind = "custom") => {
         const trimmed = name.trim();
@@ -442,6 +468,45 @@ export const useApp = create<Store>()(
           ),
         })),
 
+      editShieldTx: (shieldId, txId, patch) =>
+        set((s) => {
+          const shields = s.shields.map((sh) => {
+            if (sh.id !== shieldId) return sh;
+            let balance = sh.balance;
+            const history = sh.history.map((h) => {
+              if (h.id !== txId) return h;
+              const oldSigned = h.type === "deposit" ? h.amount : -h.amount;
+              const nextAmount = patch.amount !== undefined ? Math.max(0, patch.amount) : h.amount;
+              const newSigned = h.type === "deposit" ? nextAmount : -nextAmount;
+              balance = Math.max(0, balance - oldSigned + newSigned);
+              return {
+                ...h,
+                amount: nextAmount,
+                date: patch.date ?? h.date,
+                note: patch.note ?? h.note,
+              };
+            });
+            return { ...sh, balance, history };
+          });
+          return { shields };
+        }),
+
+      deleteShieldTx: (shieldId, txId) =>
+        set((s) => {
+          const shields = s.shields.map((sh) => {
+            if (sh.id !== shieldId) return sh;
+            const tx = sh.history.find((h) => h.id === txId);
+            if (!tx) return sh;
+            const signed = tx.type === "deposit" ? tx.amount : -tx.amount;
+            return {
+              ...sh,
+              balance: Math.max(0, sh.balance - signed),
+              history: sh.history.filter((h) => h.id !== txId),
+            };
+          });
+          return { shields };
+        }),
+
       addDebt: ({ name, initialBalance, minimumPayment }) => {
         const trimmed = name.trim();
         if (!trimmed) return null;
@@ -514,6 +579,33 @@ export const useApp = create<Store>()(
         return false;
       },
 
+      editDebtAdjustment: (debtId, adjId, patch) =>
+        set((s) => ({
+          debts: s.debts.map((d) => {
+            if (d.id !== debtId) return d;
+            return {
+              ...d,
+              adjustments: d.adjustments.map((a) =>
+                a.id === adjId
+                  ? {
+                      ...a,
+                      delta: patch.delta !== undefined ? patch.delta : a.delta,
+                      date: patch.date ?? a.date,
+                      note: patch.note ?? a.note,
+                    }
+                  : a,
+              ),
+            };
+          }),
+        })),
+
+      deleteDebtAdjustment: (debtId, adjId) =>
+        set((s) => ({
+          debts: s.debts.map((d) =>
+            d.id === debtId ? { ...d, adjustments: d.adjustments.filter((a) => a.id !== adjId) } : d,
+          ),
+        })),
+
       awardTrophy: (kind, label, contextId, monthKey) => {
         const s = get();
         const next = maybeAward(s.trophies, kind, label, contextId, monthKey);
@@ -585,6 +677,12 @@ export const useApp = create<Store>()(
         let shields = s.shields;
         let debts = s.debts;
 
+        // Compute real balance to know if the month is overdrawn.
+        const totals = groupTotals(month.lines);
+        const realBalance = totals.income.real
+          - (totals.muros.real + totals.debts.real + totals.generosity.real + totals.lifestyle.real + totals.future.real);
+        const overdrawn = realBalance < -0.005;
+
         if (allocation.type === "carry" && allocation.amount > 0) {
           const nKey = nextMonthKey(monthKey);
           const next = months[nKey] ?? emptyMonth(nKey);
@@ -608,7 +706,7 @@ export const useApp = create<Store>()(
               paidAt: newBal === 0 && !d.paid ? closedAt : d.paidAt,
               adjustments: [
                 ...d.adjustments,
-                { id: uid(), date: closedAt, delta: -allocation.amount, note: "Sobrante de cierre de mes" } as DebtAdjustment,
+                { id: uid(), date: closedAt, delta: -allocation.amount, note: "Sobrante de cierre de mes", source: "month-close" } as DebtAdjustment,
               ],
             };
           });
@@ -618,7 +716,7 @@ export const useApp = create<Store>()(
               ? {
                   ...sh,
                   balance: sh.balance + allocation.amount,
-                  history: [...sh.history, { id: uid(), date: closedAt, type: "deposit", amount: allocation.amount, note: "Sobrante de cierre de mes" } as ShieldTx],
+                  history: [...sh.history, { id: uid(), date: closedAt, type: "deposit", amount: allocation.amount, note: "Sobrante de cierre de mes", source: "month-close" } as ShieldTx],
                 }
               : sh,
           );
@@ -628,6 +726,7 @@ export const useApp = create<Store>()(
           ...month,
           closed: true,
           closedAt,
+          overdrawn,
           snapshot: { lines: month.lines.map((l) => ({ ...l })), closedAt },
           surplusCarryForwardId,
         };

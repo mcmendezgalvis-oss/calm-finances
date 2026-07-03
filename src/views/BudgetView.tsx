@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Copy, Lock, Unlock } from "lucide-react";
+import { Copy, Lock, Unlock, RotateCcw, AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { MonthSelector } from "@/components/MonthSelector";
 import { BudgetTable, type BudgetTab } from "@/components/BudgetTable";
@@ -9,12 +10,19 @@ import { unassigned, fmt, groupTotals } from "@/lib/finance";
 import { CloseMonthDialog } from "@/components/CloseMonthDialog";
 import { ReopenMonthDialog } from "@/components/ReopenMonthDialog";
 
+function isCarryLineName(name: string) {
+  const n = name.trim().toLowerCase();
+  return n === "sobrante mes anterior" || n === "previous month surplus" || n === "surplus from previous month";
+}
+
 export function BudgetView() {
   const { t } = useI18n();
   const [monthKey, setMonthKey] = useState(currentMonthKey());
   const ensureMonth = useApp((s) => s.ensureMonth);
   const months = useApp((s) => s.months);
   const copyFromPrevious = useApp((s) => s.copyFromPrevious);
+  const resetPlan = useApp((s) => s.resetPlan);
+  const resetActual = useApp((s) => s.resetActual);
   const currency = useApp((s) => s.profile.currency);
   const [tab, setTab] = useState<BudgetTab>("plan");
 
@@ -38,7 +46,13 @@ export function BudgetView() {
     return monthKeyOf(new Date(y, m - 2, 1));
   }, [monthKey]);
   const hasPrev = !!months[prevKey] && months[prevKey].lines.length > 0;
-  const isEmpty = month.lines.filter((l) => !l.linkedDebtId && !l.linkedShieldId).length === 0;
+  // "Empty" ignores system-injected lines (linked debts/shields and the auto surplus carry).
+  const isEmpty = month.lines.filter(
+    (l) => !l.linkedDebtId && !l.linkedShieldId && !(l.group === "income" && isCarryLineName(l.name)),
+  ).length === 0;
+
+  const overdrawn = Boolean(month.overdrawn);
+  const balancePositive = realBalance >= -0.005;
 
   return (
     <AppShell>
@@ -85,10 +99,29 @@ export function BudgetView() {
             {closed ? <Unlock className="size-3.5" /> : <Lock className="size-3.5" />}
             {closed ? t.closeMonth.reopenBtn : t.closeMonth.closeBtn}
           </button>
+          {!closed && (tab === "plan" || tab === "real") && (
+            <button
+              onClick={() => {
+                const msg = tab === "plan" ? t.budgetReset.confirmPlan : t.budgetReset.confirmActual;
+                if (!window.confirm(msg)) return;
+                if (tab === "plan") resetPlan(monthKey); else resetActual(monthKey);
+                toast.success(t.budgetReset.doneToast);
+              }}
+              className="inline-flex items-center gap-2 text-xs px-4 py-2 rounded-full bg-white border border-sage-200 text-sage-700 hover:bg-sage-50 transition-colors"
+            >
+              <RotateCcw className="size-3.5" />
+              {tab === "plan" ? t.budgetReset.planBtn : t.budgetReset.actualBtn}
+            </button>
+          )}
         </div>
-        {closed && (
+        {closed && !overdrawn && (
           <div className="mt-3 text-xs text-sage-600 italic bg-sage-100 border border-sage-200 px-4 py-2 rounded-full inline-block">
             🔒 {t.closeMonth.closed}
+          </div>
+        )}
+        {closed && overdrawn && (
+          <div className="mt-3 text-xs text-clay bg-blush-100 border border-blush-200 px-4 py-2 rounded-full inline-flex items-center gap-2">
+            <AlertTriangle className="size-3.5" /> {t.closeMonth.overdrawnBadge} · {fmt(realBalance, currency)}
           </div>
         )}
       </header>
@@ -111,6 +144,31 @@ export function BudgetView() {
         </div>
 
         <div className="p-6 md:p-8">
+          {tab === "diff" && (
+            <div
+              className={`mb-6 rounded-3xl p-5 border-2 ${
+                balancePositive
+                  ? "bg-sage-100 border-sage-300"
+                  : "bg-blush-100 border-blush-300"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                  <p className={`text-[10px] uppercase tracking-widest font-bold ${balancePositive ? "text-sage-700" : "text-clay"}`}>
+                    {t.budgetSummary.myCalmTitle}
+                  </p>
+                  <p className={`font-serif text-4xl mt-1 tabular-nums ${balancePositive ? "text-sage-900" : "text-clay"}`}>
+                    {fmt(realBalance, currency)}
+                  </p>
+                </div>
+                {!balancePositive && <AlertTriangle className="size-6 text-clay shrink-0 mt-1" />}
+              </div>
+              <p className={`text-xs mt-3 leading-relaxed ${balancePositive ? "text-sage-700" : "text-clay"}`}>
+                {balancePositive ? t.budgetSummary.myCalmPositive : t.budgetSummary.myCalmNegative}
+              </p>
+            </div>
+          )}
+
           <BudgetTable month={month} tab={tab} disabled={closed} />
 
           {tab === "diff" && (

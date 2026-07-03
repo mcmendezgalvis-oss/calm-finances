@@ -45,7 +45,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* Mobile top bar */}
       <header className="lg:hidden sticky top-0 z-30 bg-sage-50/90 backdrop-blur border-b border-sage-100 px-4 py-3 flex items-center justify-between">
-        <Link to="/" className="font-serif text-xl text-sage-900">
+        <Link to="/" className="font-serif text-xl text-sage-900 inline-flex items-center gap-2">
+          <img src="/icon-192.png" alt="" width={24} height={24} className="rounded" />
           {t.appName}
         </Link>
         <button
@@ -65,7 +66,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           } lg:block bg-sage-50 lg:bg-white/40 lg:border-r border-sage-100 lg:min-h-screen p-6`}
         >
           <div className="hidden lg:block mb-10">
-            <Link to="/" className="font-serif text-2xl text-sage-900 italic">
+            <Link to="/" className="font-serif text-2xl text-sage-900 italic inline-flex items-center gap-2">
+              <img src="/icon-192.png" alt="" width={32} height={32} className="rounded-md" />
               {t.appName}
             </Link>
             <p className="text-xs text-sage-600 mt-1 italic">{t.tagline}</p>

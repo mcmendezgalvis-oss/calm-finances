@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, Sparkles, Link2Off, ChevronDown, Sprout, Info } from "lucide-react";
+import { Plus, Pencil, Trash2, Sparkles, Link2Off, ChevronDown, Sprout, Info, Check, X } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PremiumGate } from "@/components/PremiumGate";
 import { useApp } from "@/store/useApp";
@@ -111,12 +111,16 @@ export function DebtsView() {
   const currency = useApp((s) => s.profile.currency);
   const removeDebt = useApp((s) => s.removeDebt);
   const updateDebt = useApp((s) => s.updateDebt);
+  const editDebtAdjustment = useApp((s) => s.editDebtAdjustment);
+  const deleteDebtAdjustment = useApp((s) => s.deleteDebtAdjustment);
   const [adjustId, setAdjustId] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
   const [openHistoryId, setOpenHistoryId] = useState<string | null>(null);
   const [payAmount, setPayAmount] = useState<Record<string, string>>({});
   const [payDate, setPayDate] = useState<Record<string, Date>>({});
+  const [editingAdjId, setEditingAdjId] = useState<string | null>(null);
+  const [editingAmt, setEditingAmt] = useState<string>("");
 
   const sorted = useMemo(() => {
     const active = debts.filter((d) => !d.paid).sort((a, b) => a.currentBalance - b.currentBalance);
@@ -321,14 +325,73 @@ export function DebtsView() {
                     </button>
                     {openHistoryId === d.id && (
                       <ul className="mt-2 space-y-1 text-xs">
-                        {[...d.adjustments].reverse().slice(0, 12).map((a) => (
-                          <li key={a.id} className="flex justify-between text-sage-500">
-                            <span>{new Date(a.date).toLocaleDateString()} · {a.note ?? "—"}</span>
-                            <span className={a.delta < 0 ? "text-sage-700" : "text-clay"}>
-                              {a.delta >= 0 ? "+" : ""}{fmt(a.delta, currency)}
-                            </span>
-                          </li>
-                        ))}
+                        {[...d.adjustments].reverse().slice(0, 24).map((a) => {
+                          const isEditing = editingAdjId === a.id;
+                          const src = a.source === "month-close" ? t.historyRow.autoFromClose
+                            : a.source === "budget" ? t.historyRow.autoFromBudget
+                            : null;
+                          return (
+                            <li key={a.id} className="flex items-center gap-2 text-sage-500 group py-0.5">
+                              <span className="flex-1 min-w-0 truncate">
+                                {new Date(a.date).toLocaleDateString()} · {a.note ?? "—"}
+                                {src && (
+                                  <span className="ml-1 text-[9px] uppercase tracking-widest text-sage-400 italic">· {src}</span>
+                                )}
+                              </span>
+                              {isEditing ? (
+                                <>
+                                  <input
+                                    inputMode="decimal"
+                                    value={editingAmt}
+                                    onChange={(e) => setEditingAmt(e.target.value)}
+                                    className="w-20 text-xs bg-white rounded px-2 py-0.5 outline-none focus:ring-1 focus:ring-wine tabular-nums"
+                                    autoFocus
+                                  />
+                                  <button
+                                    onClick={() => {
+                                      const n = parseFloat(editingAmt);
+                                      if (!isNaN(n)) {
+                                        // Keep the sign convention: negative = payment/abono, positive = ajuste banco al alza
+                                        const signed = a.delta < 0 ? -Math.abs(n) : Math.abs(n);
+                                        editDebtAdjustment(d.id, a.id, { delta: signed });
+                                      }
+                                      setEditingAdjId(null);
+                                    }}
+                                    className="text-sage-700 hover:text-sage-900 p-1"
+                                    aria-label={t.common.save}
+                                  >
+                                    <Check className="size-3.5" />
+                                  </button>
+                                  <button onClick={() => setEditingAdjId(null)} className="text-sage-400 hover:text-clay p-1" aria-label={t.common.cancel}>
+                                    <X className="size-3.5" />
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <span className={`tabular-nums ${a.delta < 0 ? "text-sage-700" : "text-clay"}`}>
+                                    {a.delta >= 0 ? "+" : ""}{fmt(a.delta, currency)}
+                                  </span>
+                                  <button
+                                    onClick={() => { setEditingAdjId(a.id); setEditingAmt(Math.abs(a.delta).toString()); }}
+                                    className="opacity-0 group-hover:opacity-100 text-sage-400 hover:text-wine p-1"
+                                    aria-label={t.historyRow.edit}
+                                  >
+                                    <Pencil className="size-3" />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (window.confirm(t.historyRow.confirmDelete)) deleteDebtAdjustment(d.id, a.id);
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 text-sage-400 hover:text-clay p-1"
+                                    aria-label={t.historyRow.delete}
+                                  >
+                                    <Trash2 className="size-3" />
+                                  </button>
+                                </>
+                              )}
+                            </li>
+                          );
+                        })}
                         <li className="flex justify-between items-center pt-2 mt-1 border-t border-sage-100 font-bold text-sage-900">
                           <span className="inline-flex items-center gap-1">
                             Total de Efectivo Destinado

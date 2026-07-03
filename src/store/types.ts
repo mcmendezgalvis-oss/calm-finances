@@ -19,6 +19,8 @@ export interface MonthBudget {
   snapshot?: { lines: BudgetLine[]; closedAt: string };
   /** ID of the auto-generated "Sobrante mes anterior" line that this month created in monthKey+1 (if any) */
   surplusCarryForwardId?: string;
+  /** True if the month was closed with a negative balance (overdrawn). */
+  overdrawn?: boolean;
 }
 
 export interface ShieldTx {
@@ -27,6 +29,8 @@ export interface ShieldTx {
   type: "deposit" | "withdraw";
   amount: number;
   note?: string;
+  /** Source of the entry — used to label auto entries from month close. */
+  source?: "manual" | "month-close" | "budget";
 }
 
 export type ShieldKind = "emergency" | "initial" | "definitive" | "custom";
@@ -47,6 +51,8 @@ export interface DebtAdjustment {
   date: string;
   delta: number;
   note?: string;
+  /** Source of the entry. */
+  source?: "manual" | "month-close" | "budget" | "bank";
 }
 
 export interface Debt {

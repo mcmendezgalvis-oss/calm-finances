@@ -22,8 +22,7 @@ type DictShape = {
   reports: {
     title: string;
     subtitle: string;
-    period: Record<"month" | "year" | "custom", string>;
-    shortcuts: Record<"last30" | "thisMonth" | "lastMonth" | "ytd", string>;
+    period: Record<"month" | "year", string>;
     from: string;
     to: string;
     type: string;
@@ -78,7 +77,11 @@ type DictShape = {
     closeBtn: string;
     reopenBtn: string;
     closed: string;
-    blockedNegative: string;
+    overdrawnTitle: string;
+    overdrawnCopy: string;
+    overdrawnCta: string;
+    overdrawnBadge: string;
+    confirmOverdrawn: string;
     positiveTitle: string;
     positiveCopy: string;
     optDebt: string;
@@ -93,6 +96,28 @@ type DictShape = {
     reopenRestore: string;
     nextCarryBlocked: string;
     incomeChain: string;
+  };
+  budgetReset: {
+    planBtn: string;
+    actualBtn: string;
+    confirmPlan: string;
+    confirmActual: string;
+    doneToast: string;
+  };
+  historyRow: {
+    edit: string;
+    delete: string;
+    autoFromClose: string;
+    autoFromBudget: string;
+    confirmDelete: string;
+    amount: string;
+    date: string;
+    note: string;
+  };
+  budgetSummary: {
+    myCalmTitle: string;
+    myCalmPositive: string;
+    myCalmNegative: string;
   };
   deleteGoal: {
     btn: string;
@@ -248,8 +273,7 @@ export const dict: Record<Lang, DictShape> = {
     reports: {
       title: "Reportes en Calma",
       subtitle: "Descarga tu historia financiera en el formato que necesitas.",
-      period: { month: "Mes", year: "Año", custom: "Personalizado" },
-      shortcuts: { last30: "Últimos 30 días", thisMonth: "Este mes", lastMonth: "Mes pasado", ytd: "Año en curso" },
+      period: { month: "Mes", year: "Año" },
       from: "Desde",
       to: "Hasta",
       type: "Tipo de reporte",
@@ -311,7 +335,11 @@ export const dict: Record<Lang, DictShape> = {
       closeBtn: "Cerrar mes",
       reopenBtn: "Reabrir mes",
       closed: "Mes cerrado · Reabre el toggle para editar.",
-      blockedNegative: "¡Atención! Tu presupuesto está en negativo este mes. Antes de cerrar, ajusta tu Realidad o reduce alguna asignación.",
+      overdrawnTitle: "Cierre en negativo",
+      overdrawnCopy: "Vas a cerrar este mes con un balance negativo. Es normal — solo respira y analiza de dónde vino la diferencia: ¿pediste dinero prestado o aumentaste el saldo de tu tarjeta de crédito? Si es así, luego ve a Adiós a las Cadenas y actualiza el saldo de tu deuda para reflejar la realidad.",
+      overdrawnCta: "Ir a Adiós a las Cadenas",
+      overdrawnBadge: "Cerrado sobregirado",
+      confirmOverdrawn: "Cerrar mes de todos modos",
       positiveTitle: "¡Bien hecho! Tienes un sobrante este mes.",
       positiveCopy: "¿Qué quieres hacer con este dinero adicional?",
       optDebt: "Atacar una deuda",
@@ -326,6 +354,28 @@ export const dict: Record<Lang, DictShape> = {
       reopenRestore: "Restaurar versión guardada",
       nextCarryBlocked: "No puedes reabrir este mes porque el sobrante ya fue trasladado al mes siguiente y ese mes también está cerrado. Reabre primero el mes siguiente.",
       incomeChain: "El sobrante en el mes siguiente fue ajustado para no duplicar dinero.",
+    },
+    budgetReset: {
+      planBtn: "Empezar de cero (Plan)",
+      actualBtn: "Empezar de cero (Realidad)",
+      confirmPlan: "¿Poner en cero todos los valores planeados de este mes? Las categorías se conservan.",
+      confirmActual: "¿Poner en cero todos los valores reales de este mes? Las categorías se conservan.",
+      doneToast: "Listo, empezamos de nuevo con calma.",
+    },
+    historyRow: {
+      edit: "Editar",
+      delete: "Eliminar",
+      autoFromClose: "cierre de mes",
+      autoFromBudget: "presupuesto",
+      confirmDelete: "¿Eliminar este movimiento? Se recalculará el saldo.",
+      amount: "Monto",
+      date: "Fecha",
+      note: "Nota",
+    },
+    budgetSummary: {
+      myCalmTitle: "Balance real del mes",
+      myCalmPositive: "Tu mes cerró con calma. Este sobrante puede ir a tus deudas, escudos, o al próximo mes.",
+      myCalmNegative: "Tu mes cerró sobregirado. Revisa de dónde vino la diferencia (¿deuda nueva, préstamo?) y actualiza tus saldos en Adiós a las Cadenas.",
     },
     deleteGoal: {
       btn: "Eliminar meta",
@@ -482,8 +532,7 @@ export const dict: Record<Lang, DictShape> = {
     reports: {
       title: "Calm Reports",
       subtitle: "Download your financial story in the format you need.",
-      period: { month: "Month", year: "Year", custom: "Custom" },
-      shortcuts: { last30: "Last 30 days", thisMonth: "This month", lastMonth: "Last month", ytd: "Year to date" },
+      period: { month: "Month", year: "Year" },
       from: "From",
       to: "To",
       type: "Report type",
@@ -545,7 +594,11 @@ export const dict: Record<Lang, DictShape> = {
       closeBtn: "Close month",
       reopenBtn: "Reopen month",
       closed: "Month closed · Toggle to reopen and edit.",
-      blockedNegative: "Heads up — your budget is in the red this month. Adjust your Reality or reduce an allocation before closing.",
+      overdrawnTitle: "Overdrawn close",
+      overdrawnCopy: "You're about to close this month with a negative balance. It's fine — just breathe and analyze where the shortfall came from: did you borrow money or increase your credit card balance? If so, head to Goodbye to Chains afterwards and update the debt balance to match reality.",
+      overdrawnCta: "Go to Goodbye to Chains",
+      overdrawnBadge: "Closed overdrawn",
+      confirmOverdrawn: "Close anyway",
       positiveTitle: "Nicely done! You have a surplus this month.",
       positiveCopy: "What would you like to do with this extra money?",
       optDebt: "Attack a debt",
@@ -560,6 +613,28 @@ export const dict: Record<Lang, DictShape> = {
       reopenRestore: "Restore saved version",
       nextCarryBlocked: "You can't reopen this month because the surplus was already carried over and that month is also closed. Reopen the next month first.",
       incomeChain: "The surplus line in the next month was adjusted so money isn't duplicated.",
+    },
+    budgetReset: {
+      planBtn: "Start over (Plan)",
+      actualBtn: "Start over (Reality)",
+      confirmPlan: "Zero out all planned values for this month? Categories are kept.",
+      confirmActual: "Zero out all real values for this month? Categories are kept.",
+      doneToast: "Done, we're starting fresh with calm.",
+    },
+    historyRow: {
+      edit: "Edit",
+      delete: "Delete",
+      autoFromClose: "month close",
+      autoFromBudget: "budget",
+      confirmDelete: "Delete this entry? The balance will be recalculated.",
+      amount: "Amount",
+      date: "Date",
+      note: "Note",
+    },
+    budgetSummary: {
+      myCalmTitle: "Real balance this month",
+      myCalmPositive: "Your month closed with calm. This surplus can go to your debts, shields, or next month.",
+      myCalmNegative: "Your month closed overdrawn. Look at where the difference came from (new debt, a loan?) and update your balances in Goodbye to Chains.",
     },
     deleteGoal: {
       btn: "Delete goal",

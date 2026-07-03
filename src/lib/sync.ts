@@ -123,7 +123,7 @@ export async function loadFromSupabase(userId: string) {
       name: profile?.name ?? "",
       plan: (profile?.plan as "free" | "premium") ?? "free",
       premiumUntil: profile?.premium_until ?? undefined,
-      currency: profile?.currency ?? "EUR",
+      currency: profile?.currency && profile.currency !== "EUR" ? profile.currency : "USD",
     },
     months,
     shields,

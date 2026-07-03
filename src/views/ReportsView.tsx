@@ -5,7 +5,7 @@ import { PremiumGate } from "@/components/PremiumGate";
 import { PeriodSelector, type PeriodValue } from "@/components/PeriodSelector";
 import { useApp, currentMonthKey } from "@/store/useApp";
 import { useI18n } from "@/i18n/I18nProvider";
-import { groupTotals, fmt } from "@/lib/finance";
+import { groupTotals, fmt, GROUP_ORDER } from "@/lib/finance";
 import { downloadCSV } from "@/lib/csv";
 import {
   generateBudgetVsRealReport,
@@ -22,12 +22,8 @@ function periodToRange(p: PeriodValue): { from: Date; to: Date; label: string } 
     const to = new Date(y, m, 0);
     return { from, to, label: `${from.toLocaleDateString(undefined, { month: "long", year: "numeric" })}` };
   }
-  if (p.mode === "year" && p.year) {
-    return { from: new Date(p.year, 0, 1), to: new Date(p.year, 11, 31), label: `Año ${p.year}` };
-  }
-  const from = p.from ?? new Date();
-  const to = p.to ?? new Date();
-  return { from, to, label: `${from.toLocaleDateString()} – ${to.toLocaleDateString()}` };
+  const year = p.year ?? new Date().getFullYear();
+  return { from: new Date(year, 0, 1), to: new Date(year, 11, 31), label: `Año ${year}` };
 }
 
 export function ReportsView() {
@@ -120,6 +116,24 @@ export function ReportsView() {
         keys.push(`${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}`);
         start.setMonth(start.getMonth() + 1);
       }
+      // Single-month filter → detailed item-by-item view.
+      if (keys.length === 1) {
+        const k = keys[0];
+        const m = state.months[k];
+        if (!m) {
+          return { cols: ["Rubro", "Concepto", "Plan", "Real"], rows: [], totals: ["TOTAL", "", fmt(0, currency), fmt(0, currency)] };
+        }
+        const rows: string[][] = [];
+        let tp = 0, tr = 0;
+        for (const g of GROUP_ORDER) {
+          const lines = m.lines.filter((l) => l.group === g);
+          for (const l of lines) {
+            rows.push([g, l.name || "—", fmt(l.planned, currency), fmt(l.real, currency)]);
+            tp += l.planned; tr += l.real;
+          }
+        }
+        return { cols: ["Rubro", "Concepto", "Plan", "Real"], rows, totals: ["TOTAL", "", fmt(tp, currency), fmt(tr, currency)] };
+      }
       const rows: { label: string; planned: number; real: number }[] = [];
       let tp = 0, tr = 0;
       const currKey = currentMonthKey();
@@ -172,7 +186,7 @@ export function ReportsView() {
     if (!preview) return;
     const rows: (string | number)[][] = [preview.cols, ...preview.rows, preview.totals];
     const tag = kind === "budget" ? "presupuesto" : kind === "debt" ? "deuda" : "fondo";
-    const stamp = period.mode === "month" ? (period.monthKey ?? "") : period.mode === "year" ? String(period.year ?? "") : `${period.from?.toISOString().slice(0,10)}_${period.to?.toISOString().slice(0,10)}`;
+    const stamp = period.mode === "month" ? (period.monthKey ?? "") : String(period.year ?? "");
     downloadCSV(`reporte-${tag}-${stamp}.csv`, rows);
   };
 
@@ -239,7 +253,7 @@ export function ReportsView() {
           )}
 
           <div>
-            <p className="text-[10px] uppercase tracking-widest text-wine font-semibold mb-2">{t.reports.period.month} / {t.reports.period.year} / {t.reports.period.custom}</p>
+            <p className="text-[10px] uppercase tracking-widest text-wine font-semibold mb-2">{t.reports.period.month} / {t.reports.period.year}</p>
             <PeriodSelector value={period} onChange={setPeriod} />
           </div>
 
