@@ -575,6 +575,33 @@ export const useApp = create<Store>()(
         return false;
       },
 
+      editDebtAdjustment: (debtId, adjId, patch) =>
+        set((s) => ({
+          debts: s.debts.map((d) => {
+            if (d.id !== debtId) return d;
+            return {
+              ...d,
+              adjustments: d.adjustments.map((a) =>
+                a.id === adjId
+                  ? {
+                      ...a,
+                      delta: patch.delta !== undefined ? patch.delta : a.delta,
+                      date: patch.date ?? a.date,
+                      note: patch.note ?? a.note,
+                    }
+                  : a,
+              ),
+            };
+          }),
+        })),
+
+      deleteDebtAdjustment: (debtId, adjId) =>
+        set((s) => ({
+          debts: s.debts.map((d) =>
+            d.id === debtId ? { ...d, adjustments: d.adjustments.filter((a) => a.id !== adjId) } : d,
+          ),
+        })),
+
       awardTrophy: (kind, label, contextId, monthKey) => {
         const s = get();
         const next = maybeAward(s.trophies, kind, label, contextId, monthKey);
