@@ -34,6 +34,8 @@ interface Actions {
   updateLine: (monthKey: string, lineId: string, patch: Partial<BudgetLine>) => void;
   removeLine: (monthKey: string, lineId: string) => void;
   copyFromPrevious: (monthKey: string) => void;
+  resetPlan: (monthKey: string) => void;
+  resetActual: (monthKey: string) => void;
   addShield: (name: string, goal: number, kind?: "custom" | "initial" | "definitive") => string | null;
   removeShield: (id: string, options?: { force?: boolean }) => boolean;
   archiveShield: (id: string) => void;
@@ -41,11 +43,15 @@ interface Actions {
   renameShield: (id: string, name: string) => boolean;
   shieldDeposit: (id: string, amount: number, note?: string, date?: string) => void;
   shieldWithdraw: (id: string, amount: number, note?: string, date?: string) => void;
+  editShieldTx: (shieldId: string, txId: string, patch: { amount?: number; date?: string; note?: string }) => void;
+  deleteShieldTx: (shieldId: string, txId: string) => void;
   addDebt: (input: { name: string; initialBalance: number; minimumPayment: number }) => string | null;
   removeDebt: (id: string) => void;
   updateDebt: (id: string, patch: Partial<Debt>) => void;
   bankAdjust: (id: string, newBalance: number, note?: string) => void;
   registerDebtPayment: (id: string, amount: number, date?: string, note?: string) => boolean;
+  editDebtAdjustment: (debtId: string, adjId: string, patch: { delta?: number; date?: string; note?: string }) => void;
+  deleteDebtAdjustment: (debtId: string, adjId: string) => void;
   setProfileName: (name: string) => void;
   setPlan: (plan: UserPlan, days?: number) => void;
   redeemCode: (code: string) => boolean;
