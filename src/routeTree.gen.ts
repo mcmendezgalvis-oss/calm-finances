@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedReportesRouteImport } from './routes/_authenticated/reportes'
 import { Route as AuthenticatedPresupuestoRouteImport } from './routes/_authenticated/presupuesto'
@@ -17,51 +18,55 @@ import { Route as AuthenticatedEscudosRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedDeudasRouteImport } from './routes/_authenticated/deudas'
 import { Route as AuthenticatedAjustesRouteImport } from './routes/_authenticated/ajustes'
 
-const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
-  id: '/_authenticated/',
-  path: '/',
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedReportesRoute = AuthenticatedReportesRouteImport.update({
-  id: '/_authenticated/reportes',
+  id: '/reportes',
   path: '/reportes',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedPresupuestoRoute =
   AuthenticatedPresupuestoRouteImport.update({
-    id: '/_authenticated/presupuesto',
+    id: '/presupuesto',
     path: '/presupuesto',
-    getParentRoute: () => rootRouteImport,
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedLogrosRoute = AuthenticatedLogrosRouteImport.update({
-  id: '/_authenticated/logros',
+  id: '/logros',
   path: '/logros',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedEscudosRoute = AuthenticatedEscudosRouteImport.update({
-  id: '/_authenticated/escudos',
+  id: '/escudos',
   path: '/escudos',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDeudasRoute = AuthenticatedDeudasRouteImport.update({
-  id: '/_authenticated/deudas',
+  id: '/deudas',
   path: '/deudas',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedAjustesRoute = AuthenticatedAjustesRouteImport.update({
-  id: '/_authenticated/ajustes',
+  id: '/ajustes',
   path: '/ajustes',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
+  '/': typeof AuthenticatedIndexRoute
   '/ajustes': typeof AuthenticatedAjustesRoute
   '/deudas': typeof AuthenticatedDeudasRoute
   '/escudos': typeof AuthenticatedEscudosRoute
   '/logros': typeof AuthenticatedLogrosRoute
   '/presupuesto': typeof AuthenticatedPresupuestoRoute
   '/reportes': typeof AuthenticatedReportesRoute
-  '/': typeof AuthenticatedIndexRoute
 }
 export interface FileRoutesByTo {
   '/ajustes': typeof AuthenticatedAjustesRoute
@@ -74,6 +79,7 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/_authenticated/ajustes': typeof AuthenticatedAjustesRoute
   '/_authenticated/deudas': typeof AuthenticatedDeudasRoute
   '/_authenticated/escudos': typeof AuthenticatedEscudosRoute
@@ -85,13 +91,13 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/'
     | '/ajustes'
     | '/deudas'
     | '/escudos'
     | '/logros'
     | '/presupuesto'
     | '/reportes'
-    | '/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/ajustes'
@@ -103,6 +109,7 @@ export interface FileRouteTypes {
     | '/'
   id:
     | '__root__'
+    | '/_authenticated'
     | '/_authenticated/ajustes'
     | '/_authenticated/deudas'
     | '/_authenticated/escudos'
@@ -113,6 +120,71 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+}
+
+declare module '@tanstack/react-router' {
+  interface FileRoutesByPath {
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/': {
+      id: '/_authenticated/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/reportes': {
+      id: '/_authenticated/reportes'
+      path: '/reportes'
+      fullPath: '/reportes'
+      preLoaderRoute: typeof AuthenticatedReportesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/presupuesto': {
+      id: '/_authenticated/presupuesto'
+      path: '/presupuesto'
+      fullPath: '/presupuesto'
+      preLoaderRoute: typeof AuthenticatedPresupuestoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/logros': {
+      id: '/_authenticated/logros'
+      path: '/logros'
+      fullPath: '/logros'
+      preLoaderRoute: typeof AuthenticatedLogrosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/escudos': {
+      id: '/_authenticated/escudos'
+      path: '/escudos'
+      fullPath: '/escudos'
+      preLoaderRoute: typeof AuthenticatedEscudosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/deudas': {
+      id: '/_authenticated/deudas'
+      path: '/deudas'
+      fullPath: '/deudas'
+      preLoaderRoute: typeof AuthenticatedDeudasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/ajustes': {
+      id: '/_authenticated/ajustes'
+      path: '/ajustes'
+      fullPath: '/ajustes'
+      preLoaderRoute: typeof AuthenticatedAjustesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+  }
+}
+
+interface AuthenticatedRouteRouteChildren {
   AuthenticatedAjustesRoute: typeof AuthenticatedAjustesRoute
   AuthenticatedDeudasRoute: typeof AuthenticatedDeudasRoute
   AuthenticatedEscudosRoute: typeof AuthenticatedEscudosRoute
@@ -122,61 +194,7 @@ export interface RootRouteChildren {
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
-declare module '@tanstack/react-router' {
-  interface FileRoutesByPath {
-    '/_authenticated/': {
-      id: '/_authenticated/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/reportes': {
-      id: '/_authenticated/reportes'
-      path: '/reportes'
-      fullPath: '/reportes'
-      preLoaderRoute: typeof AuthenticatedReportesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/presupuesto': {
-      id: '/_authenticated/presupuesto'
-      path: '/presupuesto'
-      fullPath: '/presupuesto'
-      preLoaderRoute: typeof AuthenticatedPresupuestoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/logros': {
-      id: '/_authenticated/logros'
-      path: '/logros'
-      fullPath: '/logros'
-      preLoaderRoute: typeof AuthenticatedLogrosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/escudos': {
-      id: '/_authenticated/escudos'
-      path: '/escudos'
-      fullPath: '/escudos'
-      preLoaderRoute: typeof AuthenticatedEscudosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/deudas': {
-      id: '/_authenticated/deudas'
-      path: '/deudas'
-      fullPath: '/deudas'
-      preLoaderRoute: typeof AuthenticatedDeudasRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/ajustes': {
-      id: '/_authenticated/ajustes'
-      path: '/ajustes'
-      fullPath: '/ajustes'
-      preLoaderRoute: typeof AuthenticatedAjustesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-  }
-}
-
-const rootRouteChildren: RootRouteChildren = {
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAjustesRoute: AuthenticatedAjustesRoute,
   AuthenticatedDeudasRoute: AuthenticatedDeudasRoute,
   AuthenticatedEscudosRoute: AuthenticatedEscudosRoute,
@@ -184,6 +202,13 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedPresupuestoRoute: AuthenticatedPresupuestoRoute,
   AuthenticatedReportesRoute: AuthenticatedReportesRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
+const rootRouteChildren: RootRouteChildren = {
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
