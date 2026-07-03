@@ -303,26 +303,30 @@ export const useApp = create<Store>()(
             const n = name.trim().toLowerCase();
             return n === "sobrante mes anterior" || n === "previous month surplus" || n === "surplus from previous month";
           };
-          // Existing linked targets and carry lines in destination must be preserved as-is.
-          const existingLinkedShield = new Set(
-            existingLines.filter((l) => l.linkedShieldId).map((l) => l.linkedShieldId as string),
-          );
-          const existingLinkedDebt = new Set(
-            existingLines.filter((l) => l.linkedDebtId).map((l) => l.linkedDebtId as string),
-          );
-          const existingHasCarry = existingLines.some((l) => l.group === "income" && isCarryName(l.name));
-          const copied: BudgetLine[] = [];
+          // Map existing linked lines so we can update their planned values instead
+          // of skipping them (they were auto-injected by syncLinkedLines with planned=0).
+          const existingByShield = new Map<string, number>();
+          const existingByDebt = new Map<string, number>();
+          existingLines.forEach((l, i) => {
+            if (l.linkedShieldId) existingByShield.set(l.linkedShieldId, i);
+            if (l.linkedDebtId) existingByDebt.set(l.linkedDebtId, i);
+          });
+          const merged: BudgetLine[] = existingLines.map((l) => ({ ...l }));
           for (const l of prev.lines) {
             // Skip the previous month's surplus carry line — it doesn't belong here.
             if (l.group === "income" && isCarryName(l.name)) continue;
-            // Don't re-copy a carry line if destination already has one.
-            if (existingHasCarry && l.group === "income" && isCarryName(l.name)) continue;
-            // Don't duplicate linked goal/debt lines that already exist in destination.
-            if (l.linkedShieldId && existingLinkedShield.has(l.linkedShieldId)) continue;
-            if (l.linkedDebtId && existingLinkedDebt.has(l.linkedDebtId)) continue;
-            copied.push({ ...l, id: uid(), real: 0 });
+            if (l.linkedShieldId && existingByShield.has(l.linkedShieldId)) {
+              const idx = existingByShield.get(l.linkedShieldId)!;
+              merged[idx] = { ...merged[idx], planned: l.planned, name: l.name || merged[idx].name };
+              continue;
+            }
+            if (l.linkedDebtId && existingByDebt.has(l.linkedDebtId)) {
+              const idx = existingByDebt.get(l.linkedDebtId)!;
+              merged[idx] = { ...merged[idx], planned: l.planned, name: l.name || merged[idx].name };
+              continue;
+            }
+            merged.push({ ...l, id: uid(), real: 0 });
           }
-          const merged: BudgetLine[] = [...existingLines, ...copied];
           return { months: { ...s.months, [monthKey]: { monthKey, lines: merged, ...(existing ? { closed: existing.closed, closedAt: existing.closedAt, snapshot: existing.snapshot, surplusCarryForwardId: existing.surplusCarryForwardId } : {}) } } };
         });
       },
