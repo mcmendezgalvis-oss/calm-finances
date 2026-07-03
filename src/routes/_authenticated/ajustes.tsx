@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { SettingsView } from "@/views/SettingsView";
 
-export const Route = createFileRoute("/ajustes")({
+export const Route = createFileRoute("/_authenticated/ajustes")({
   head: () => ({
     meta: [
       { title: "Ajustes · Finanzas en Calma" },

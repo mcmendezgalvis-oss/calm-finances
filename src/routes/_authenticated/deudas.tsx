@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { DebtsView } from "@/views/DebtsView";
 
-export const Route = createFileRoute("/deudas")({
+export const Route = createFileRoute("/_authenticated/deudas")({
   head: () => ({
     meta: [
       { title: "Adiós a las Cadenas · Finanzas en Calma" },

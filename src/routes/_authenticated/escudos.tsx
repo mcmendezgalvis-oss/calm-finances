@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ShieldsView } from "@/views/ShieldsView";
 
-export const Route = createFileRoute("/escudos")({
+export const Route = createFileRoute("/_authenticated/escudos")({
   head: () => ({
     meta: [
       { title: "Mis Escudos · Finanzas en Calma" },

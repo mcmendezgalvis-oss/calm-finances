@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { BudgetView } from "@/views/BudgetView";
 
-export const Route = createFileRoute("/presupuesto")({
+export const Route = createFileRoute("/_authenticated/presupuesto")({
   head: () => ({
     meta: [
       { title: "Presupuesto · Finanzas en Calma" },
