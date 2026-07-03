@@ -323,6 +323,22 @@ export const useApp = create<Store>()(
         });
       },
 
+      resetPlan: (monthKey) =>
+        set((s) => {
+          const month = s.months[monthKey];
+          if (!month || month.closed) return s;
+          const lines = month.lines.map((l) => ({ ...l, planned: 0 }));
+          return { months: { ...s.months, [monthKey]: { ...month, lines } } };
+        }),
+
+      resetActual: (monthKey) =>
+        set((s) => {
+          const month = s.months[monthKey];
+          if (!month || month.closed) return s;
+          const lines = month.lines.map((l) => ({ ...l, real: 0 }));
+          return { months: { ...s.months, [monthKey]: { ...month, lines } } };
+        }),
+
       addShield: (name, goal, kind = "custom") => {
         const trimmed = name.trim();
         if (!trimmed) return null;
