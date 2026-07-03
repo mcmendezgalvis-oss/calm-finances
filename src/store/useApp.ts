@@ -673,6 +673,12 @@ export const useApp = create<Store>()(
         let shields = s.shields;
         let debts = s.debts;
 
+        // Compute real balance to know if the month is overdrawn.
+        const totals = groupTotals(month.lines);
+        const realBalance = totals.income.real
+          - (totals.muros.real + totals.debts.real + totals.generosity.real + totals.lifestyle.real + totals.future.real);
+        const overdrawn = realBalance < -0.005;
+
         if (allocation.type === "carry" && allocation.amount > 0) {
           const nKey = nextMonthKey(monthKey);
           const next = months[nKey] ?? emptyMonth(nKey);
@@ -696,7 +702,7 @@ export const useApp = create<Store>()(
               paidAt: newBal === 0 && !d.paid ? closedAt : d.paidAt,
               adjustments: [
                 ...d.adjustments,
-                { id: uid(), date: closedAt, delta: -allocation.amount, note: "Sobrante de cierre de mes" } as DebtAdjustment,
+                { id: uid(), date: closedAt, delta: -allocation.amount, note: "Sobrante de cierre de mes", source: "month-close" } as DebtAdjustment,
               ],
             };
           });
@@ -706,7 +712,7 @@ export const useApp = create<Store>()(
               ? {
                   ...sh,
                   balance: sh.balance + allocation.amount,
-                  history: [...sh.history, { id: uid(), date: closedAt, type: "deposit", amount: allocation.amount, note: "Sobrante de cierre de mes" } as ShieldTx],
+                  history: [...sh.history, { id: uid(), date: closedAt, type: "deposit", amount: allocation.amount, note: "Sobrante de cierre de mes", source: "month-close" } as ShieldTx],
                 }
               : sh,
           );
@@ -716,6 +722,7 @@ export const useApp = create<Store>()(
           ...month,
           closed: true,
           closedAt,
+          overdrawn,
           snapshot: { lines: month.lines.map((l) => ({ ...l })), closedAt },
           surplusCarryForwardId,
         };
