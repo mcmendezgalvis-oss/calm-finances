@@ -5,7 +5,7 @@ import { PremiumGate } from "@/components/PremiumGate";
 import { PeriodSelector, type PeriodValue } from "@/components/PeriodSelector";
 import { useApp, currentMonthKey } from "@/store/useApp";
 import { useI18n } from "@/i18n/I18nProvider";
-import { groupTotals, fmt } from "@/lib/finance";
+import { groupTotals, fmt, GROUP_ORDER } from "@/lib/finance";
 import { downloadCSV } from "@/lib/csv";
 import {
   generateBudgetVsRealReport,
@@ -22,12 +22,8 @@ function periodToRange(p: PeriodValue): { from: Date; to: Date; label: string } 
     const to = new Date(y, m, 0);
     return { from, to, label: `${from.toLocaleDateString(undefined, { month: "long", year: "numeric" })}` };
   }
-  if (p.mode === "year" && p.year) {
-    return { from: new Date(p.year, 0, 1), to: new Date(p.year, 11, 31), label: `Año ${p.year}` };
-  }
-  const from = p.from ?? new Date();
-  const to = p.to ?? new Date();
-  return { from, to, label: `${from.toLocaleDateString()} – ${to.toLocaleDateString()}` };
+  const year = p.year ?? new Date().getFullYear();
+  return { from: new Date(year, 0, 1), to: new Date(year, 11, 31), label: `Año ${year}` };
 }
 
 export function ReportsView() {
