@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedReportesRouteImport } from './routes/_authenticated/reportes'
@@ -18,6 +19,11 @@ import { Route as AuthenticatedEscudosRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedDeudasRouteImport } from './routes/_authenticated/deudas'
 import { Route as AuthenticatedAjustesRouteImport } from './routes/_authenticated/ajustes'
 
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
@@ -61,6 +67,7 @@ const AuthenticatedAjustesRoute = AuthenticatedAjustesRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
+  '/auth': typeof AuthRoute
   '/ajustes': typeof AuthenticatedAjustesRoute
   '/deudas': typeof AuthenticatedDeudasRoute
   '/escudos': typeof AuthenticatedEscudosRoute
@@ -69,6 +76,7 @@ export interface FileRoutesByFullPath {
   '/reportes': typeof AuthenticatedReportesRoute
 }
 export interface FileRoutesByTo {
+  '/auth': typeof AuthRoute
   '/ajustes': typeof AuthenticatedAjustesRoute
   '/deudas': typeof AuthenticatedDeudasRoute
   '/escudos': typeof AuthenticatedEscudosRoute
@@ -80,6 +88,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
   '/_authenticated/ajustes': typeof AuthenticatedAjustesRoute
   '/_authenticated/deudas': typeof AuthenticatedDeudasRoute
   '/_authenticated/escudos': typeof AuthenticatedEscudosRoute
@@ -92,6 +101,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/auth'
     | '/ajustes'
     | '/deudas'
     | '/escudos'
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
     | '/reportes'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/auth'
     | '/ajustes'
     | '/deudas'
     | '/escudos'
@@ -110,6 +121,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_authenticated'
+    | '/auth'
     | '/_authenticated/ajustes'
     | '/_authenticated/deudas'
     | '/_authenticated/escudos'
@@ -121,10 +133,18 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated': {
       id: '/_authenticated'
       path: ''
@@ -209,6 +229,7 @@ const AuthenticatedRouteRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
