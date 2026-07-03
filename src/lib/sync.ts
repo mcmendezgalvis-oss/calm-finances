@@ -54,7 +54,7 @@ export async function loadFromSupabase(userId: string) {
       lines: linesByMonth.get(m.id) ?? [],
       closed: m.closed,
       closedAt: m.closed_at ?? undefined,
-      snapshot: (m.snapshot as MonthBudget["snapshot"]) ?? undefined,
+      snapshot: (m.snapshot as unknown as MonthBudget["snapshot"]) ?? undefined,
       surplusCarryForwardId: m.surplus_carry_forward_id ?? undefined,
     };
   }
