@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, Sparkles, Link2Off, ChevronDown, Sprout, Info } from "lucide-react";
+import { Plus, Pencil, Trash2, Sparkles, Link2Off, ChevronDown, Sprout, Info, Check, X } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PremiumGate } from "@/components/PremiumGate";
 import { useApp } from "@/store/useApp";
@@ -111,12 +111,16 @@ export function DebtsView() {
   const currency = useApp((s) => s.profile.currency);
   const removeDebt = useApp((s) => s.removeDebt);
   const updateDebt = useApp((s) => s.updateDebt);
+  const editDebtAdjustment = useApp((s) => s.editDebtAdjustment);
+  const deleteDebtAdjustment = useApp((s) => s.deleteDebtAdjustment);
   const [adjustId, setAdjustId] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
   const [openHistoryId, setOpenHistoryId] = useState<string | null>(null);
   const [payAmount, setPayAmount] = useState<Record<string, string>>({});
   const [payDate, setPayDate] = useState<Record<string, Date>>({});
+  const [editingAdjId, setEditingAdjId] = useState<string | null>(null);
+  const [editingAmt, setEditingAmt] = useState<string>("");
 
   const sorted = useMemo(() => {
     const active = debts.filter((d) => !d.paid).sort((a, b) => a.currentBalance - b.currentBalance);
