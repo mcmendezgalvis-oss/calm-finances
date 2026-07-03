@@ -464,6 +464,45 @@ export const useApp = create<Store>()(
           ),
         })),
 
+      editShieldTx: (shieldId, txId, patch) =>
+        set((s) => {
+          const shields = s.shields.map((sh) => {
+            if (sh.id !== shieldId) return sh;
+            let balance = sh.balance;
+            const history = sh.history.map((h) => {
+              if (h.id !== txId) return h;
+              const oldSigned = h.type === "deposit" ? h.amount : -h.amount;
+              const nextAmount = patch.amount !== undefined ? Math.max(0, patch.amount) : h.amount;
+              const newSigned = h.type === "deposit" ? nextAmount : -nextAmount;
+              balance = Math.max(0, balance - oldSigned + newSigned);
+              return {
+                ...h,
+                amount: nextAmount,
+                date: patch.date ?? h.date,
+                note: patch.note ?? h.note,
+              };
+            });
+            return { ...sh, balance, history };
+          });
+          return { shields };
+        }),
+
+      deleteShieldTx: (shieldId, txId) =>
+        set((s) => {
+          const shields = s.shields.map((sh) => {
+            if (sh.id !== shieldId) return sh;
+            const tx = sh.history.find((h) => h.id === txId);
+            if (!tx) return sh;
+            const signed = tx.type === "deposit" ? tx.amount : -tx.amount;
+            return {
+              ...sh,
+              balance: Math.max(0, sh.balance - signed),
+              history: sh.history.filter((h) => h.id !== txId),
+            };
+          });
+          return { shields };
+        }),
+
       addDebt: ({ name, initialBalance, minimumPayment }) => {
         const trimmed = name.trim();
         if (!trimmed) return null;
