@@ -253,7 +253,7 @@ export function ReportsView() {
           )}
 
           <div>
-            <p className="text-[10px] uppercase tracking-widest text-wine font-semibold mb-2">{t.reports.period.month} / {t.reports.period.year} / {t.reports.period.custom}</p>
+            <p className="text-[10px] uppercase tracking-widest text-wine font-semibold mb-2">{t.reports.period.month} / {t.reports.period.year}</p>
             <PeriodSelector value={period} onChange={setPeriod} />
           </div>
 
