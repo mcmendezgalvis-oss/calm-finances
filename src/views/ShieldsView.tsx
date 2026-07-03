@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, ArrowDown, ArrowUp, Trash2, Shield as ShieldIcon, ChevronDown } from "lucide-react";
+import { Plus, ArrowDown, ArrowUp, Trash2, Shield as ShieldIcon, ChevronDown, Pencil, Check, X } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PremiumGate } from "@/components/PremiumGate";
 import { useApp, currentMonthKey } from "@/store/useApp";
@@ -32,11 +32,15 @@ function ShieldCard({ shieldId, locked = false }: { shieldId?: string; locked?: 
   const shields = useApp((s) => s.shields);
   const shieldDeposit = useApp((s) => s.shieldDeposit);
   const shieldWithdraw = useApp((s) => s.shieldWithdraw);
+  const editShieldTx = useApp((s) => s.editShieldTx);
+  const deleteShieldTx = useApp((s) => s.deleteShieldTx);
   const [showHistory, setShowHistory] = useState(false);
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState<Date>(new Date());
   const [editGoal, setEditGoal] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [editingTxId, setEditingTxId] = useState<string | null>(null);
+  const [editingAmt, setEditingAmt] = useState<string>("");
 
   if (locked) return null;
 
@@ -140,14 +144,68 @@ function ShieldCard({ shieldId, locked = false }: { shieldId?: string; locked?: 
           </button>
           {showHistory && (
             <ul className="mt-2 space-y-1 text-xs">
-              {shield.history.slice().reverse().slice(0, 8).map((h) => (
-                <li key={h.id} className="flex justify-between text-sage-500">
-                  <span>{new Date(h.date).toLocaleDateString()}</span>
-                  <span className={h.type === "deposit" ? "text-sage-700" : "text-clay"}>
-                    {h.type === "deposit" ? "+" : "−"}{fmt(Math.abs(h.amount), currency)}
-                  </span>
-                </li>
-              ))}
+              {shield.history.slice().reverse().slice(0, 24).map((h) => {
+                const isEditing = editingTxId === h.id;
+                const src = h.source === "month-close" ? t.historyRow.autoFromClose
+                  : h.source === "budget" ? t.historyRow.autoFromBudget
+                  : null;
+                return (
+                  <li key={h.id} className="flex items-center gap-2 text-sage-500 group py-0.5">
+                    <span className="flex-1 min-w-0 truncate">
+                      {new Date(h.date).toLocaleDateString()}
+                      {h.note && <span className="ml-1 text-sage-400">· {h.note}</span>}
+                      {src && <span className="ml-1 text-[9px] uppercase tracking-widest text-sage-400 italic">· {src}</span>}
+                    </span>
+                    {isEditing ? (
+                      <>
+                        <input
+                          inputMode="decimal"
+                          value={editingAmt}
+                          onChange={(e) => setEditingAmt(e.target.value)}
+                          className="w-20 text-xs bg-white rounded px-2 py-0.5 outline-none focus:ring-1 focus:ring-sage-300 tabular-nums"
+                          autoFocus
+                        />
+                        <button
+                          onClick={() => {
+                            const n = parseFloat(editingAmt);
+                            if (!isNaN(n)) editShieldTx(shield.id, h.id, { amount: Math.abs(n) });
+                            setEditingTxId(null);
+                          }}
+                          className="text-sage-700 hover:text-sage-900 p-1"
+                          aria-label={t.common.save}
+                        >
+                          <Check className="size-3.5" />
+                        </button>
+                        <button onClick={() => setEditingTxId(null)} className="text-sage-400 hover:text-clay p-1" aria-label={t.common.cancel}>
+                          <X className="size-3.5" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className={`tabular-nums ${h.type === "deposit" ? "text-sage-700" : "text-clay"}`}>
+                          {h.type === "deposit" ? "+" : "−"}{fmt(Math.abs(h.amount), currency)}
+                        </span>
+                        <button
+                          onClick={() => { setEditingTxId(h.id); setEditingAmt(Math.abs(h.amount).toString()); }}
+                          className="opacity-0 group-hover:opacity-100 text-sage-400 hover:text-wine p-1"
+                          aria-label={t.historyRow.edit}
+                        >
+                          <Pencil className="size-3" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (window.confirm(t.historyRow.confirmDelete)) deleteShieldTx(shield.id, h.id);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 text-sage-400 hover:text-clay p-1"
+                          aria-label={t.historyRow.delete}
+                        >
+                          <Trash2 className="size-3" />
+                        </button>
+                      </>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </>
