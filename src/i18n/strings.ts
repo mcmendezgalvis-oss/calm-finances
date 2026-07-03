@@ -22,8 +22,7 @@ type DictShape = {
   reports: {
     title: string;
     subtitle: string;
-    period: Record<"month" | "year" | "custom", string>;
-    shortcuts: Record<"last30" | "thisMonth" | "lastMonth" | "ytd", string>;
+    period: Record<"month" | "year", string>;
     from: string;
     to: string;
     type: string;
@@ -78,7 +77,11 @@ type DictShape = {
     closeBtn: string;
     reopenBtn: string;
     closed: string;
-    blockedNegative: string;
+    overdrawnTitle: string;
+    overdrawnCopy: string;
+    overdrawnCta: string;
+    overdrawnBadge: string;
+    confirmOverdrawn: string;
     positiveTitle: string;
     positiveCopy: string;
     optDebt: string;
@@ -93,6 +96,28 @@ type DictShape = {
     reopenRestore: string;
     nextCarryBlocked: string;
     incomeChain: string;
+  };
+  budgetReset: {
+    planBtn: string;
+    actualBtn: string;
+    confirmPlan: string;
+    confirmActual: string;
+    doneToast: string;
+  };
+  historyRow: {
+    edit: string;
+    delete: string;
+    autoFromClose: string;
+    autoFromBudget: string;
+    confirmDelete: string;
+    amount: string;
+    date: string;
+    note: string;
+  };
+  budgetSummary: {
+    myCalmTitle: string;
+    myCalmPositive: string;
+    myCalmNegative: string;
   };
   deleteGoal: {
     btn: string;
