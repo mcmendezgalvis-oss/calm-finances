@@ -72,6 +72,7 @@ export function BudgetView() {
 
   const overdrawn = Boolean(month.overdrawn);
   const balancePositive = realBalance >= -0.005;
+  const balanceZero = Math.abs(realBalance) < 0.005;
 
   // Per-tab palette. `header` is the resting color of the tab trigger (also
   // the color of the content sheet when active). `border` is a subtle divider
