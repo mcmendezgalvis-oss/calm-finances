@@ -242,7 +242,7 @@ export const useApp = create<Store>()(
                       balance: sh.balance + delta,
                       history: [
                         ...sh.history,
-                        { id: uid(), date: new Date().toISOString(), type: delta >= 0 ? "deposit" : "withdraw", amount: Math.abs(delta), note: "Aporte desde presupuesto", source: "budget" } as ShieldTx,
+                        { id: uid(), date: new Date().toISOString(), type: delta >= 0 ? "deposit" : "withdraw", amount: Math.abs(delta), note: "Aporte desde presupuesto", source: "budget", monthKey } as ShieldTx,
                       ],
                     }
                   : sh,
@@ -272,7 +272,7 @@ export const useApp = create<Store>()(
                   paidAt: justPaid ? new Date().toISOString() : dbt.paidAt,
                   adjustments: [
                     ...dbt.adjustments,
-                    { id: uid(), date: new Date().toISOString(), delta: -delta, note: "Abono desde presupuesto", source: "budget" } as DebtAdjustment,
+                    { id: uid(), date: new Date().toISOString(), delta: -delta, note: "Abono desde presupuesto", source: "budget", monthKey } as DebtAdjustment,
                   ],
                 };
               });
