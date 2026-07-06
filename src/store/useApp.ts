@@ -84,6 +84,71 @@ function trophyKey(kind: TrophyKind, contextId?: string, monthKey?: string) {
   return `${kind}::${contextId ?? ""}::${monthKey ?? ""}`;
 }
 
+/**
+ * For each linked budget line in the given month, ensure the corresponding
+ * debt/shield contains exactly ONE consolidated entry tagged source="budget"
+ * whose amount matches line.real. Any prior "budget"-source entries for this
+ * monthKey are removed and their effect on balance is undone. Manual and
+ * carry entries are never touched.
+ */
+function reconcileBudgetSourceForMonth(
+  state: AppState,
+  monthKey: string,
+): { shields: Shield[]; debts: Debt[] } {
+  const month = state.months[monthKey];
+  if (!month) return { shields: state.shields, debts: state.debts };
+  const now = new Date().toISOString();
+
+  // Debts
+  const debtsByLinked = new Map<string, BudgetLine>();
+  for (const l of month.lines) {
+    if (l.linkedDebtId) debtsByLinked.set(l.linkedDebtId, l);
+  }
+  const debts: Debt[] = state.debts.map((d) => {
+    const line = debtsByLinked.get(d.id);
+    if (!line) return d;
+    // Undo prior budget entries for this month
+    const priorBudget = d.adjustments.filter((a) => a.source === "budget" && a.monthKey === monthKey);
+    const priorSum = priorBudget.reduce((s, a) => s + a.delta, 0); // typically negative
+    const kept = d.adjustments.filter((a) => !(a.source === "budget" && a.monthKey === monthKey));
+    const desired = line.real || 0;
+    const nextAdjustments =
+      desired > 0
+        ? [
+            ...kept,
+            { id: uid(), date: now, delta: -desired, note: "Abono desde presupuesto", source: "budget", monthKey } as DebtAdjustment,
+          ]
+        : kept;
+    const newBalance = Math.max(0, d.currentBalance - priorSum + (desired > 0 ? -desired : 0));
+    return { ...d, currentBalance: newBalance, adjustments: nextAdjustments };
+  });
+
+  // Shields
+  const shieldsByLinked = new Map<string, BudgetLine>();
+  for (const l of month.lines) {
+    if (l.linkedShieldId) shieldsByLinked.set(l.linkedShieldId, l);
+  }
+  const shields: Shield[] = state.shields.map((sh) => {
+    const line = shieldsByLinked.get(sh.id);
+    if (!line) return sh;
+    const priorBudget = sh.history.filter((h) => h.source === "budget" && h.monthKey === monthKey);
+    const priorSigned = priorBudget.reduce((s, h) => s + (h.type === "deposit" ? h.amount : -h.amount), 0);
+    const kept = sh.history.filter((h) => !(h.source === "budget" && h.monthKey === monthKey));
+    const desired = line.real || 0;
+    const nextHistory =
+      desired !== 0
+        ? [
+            ...kept,
+            { id: uid(), date: now, type: (desired >= 0 ? "deposit" : "withdraw"), amount: Math.abs(desired), note: "Aporte desde presupuesto", source: "budget", monthKey } as ShieldTx,
+          ]
+        : kept;
+    const newBalance = Math.max(0, sh.balance - priorSigned + desired);
+    return { ...sh, balance: newBalance, history: nextHistory };
+  });
+
+  return { shields, debts };
+}
+
 function maybeAward(
   trophies: Trophy[],
   kind: TrophyKind,
