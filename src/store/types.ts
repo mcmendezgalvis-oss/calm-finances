@@ -55,7 +55,7 @@ export interface DebtAdjustment {
   delta: number;
   note?: string;
   /** Source of the entry. */
-  source?: "manual" | "month-close" | "budget" | "bank";
+  source?: "manual" | "month-close" | "budget" | "bank" | "carry";
   /** monthKey when this adjustment originated from a budgeted month. */
   monthKey?: string;
 }
