@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Shield as ShieldIcon, ArrowUp, ArrowDown, ChevronDown } from "lucide-react";
+import { Shield as ShieldIcon, ArrowUp, ArrowDown, ChevronDown, Pencil, Check, X, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { useApp, currentMonthKey } from "@/store/useApp";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -15,6 +15,8 @@ export function EmergencyFundCard() {
   const shieldDeposit = useApp((s) => s.shieldDeposit);
   const shieldWithdraw = useApp((s) => s.shieldWithdraw);
   const trophies = useApp((s) => s.trophies);
+  const override = useApp((s) => s.emergencyLevelsOverride) ?? {};
+  const setEmergencyLevelOverride = useApp((s) => s.setEmergencyLevelOverride);
 
   const fund = shields.find((s) => s.id === EMERGENCY_FUND_ID);
 
@@ -24,7 +26,16 @@ export function EmergencyFundCard() {
 
   const month = months[currentMonthKey()] ?? { monthKey: currentMonthKey(), lines: [] };
   const muros = muros4Total(month);
-  const levels = useMemo(() => emergencyLevels(muros), [muros]);
+  const baseLevels = useMemo(() => emergencyLevels(muros), [muros]);
+  const levels = useMemo(
+    () => ({
+      ...baseLevels,
+      l1: override.l1 ?? baseLevels.l1,
+      l2Max: override.l2 ?? baseLevels.l2Max,
+      l3Max: override.l3 ?? baseLevels.l3Max,
+    }),
+    [baseLevels, override.l1, override.l2, override.l3],
+  );
   const balance = fund?.balance ?? 0;
   const reached = emergencyLevelReached(balance, levels);
 
@@ -62,21 +73,90 @@ export function EmergencyFundCard() {
     toast(`− ${fmt(n, currency)}`);
   };
 
-  const milestoneChip = (label: string, target: number, levelIdx: 1 | 2 | 3) => {
+  const MilestoneChip = ({
+    label,
+    target,
+    levelIdx,
+    overrideKey,
+    isOverridden,
+  }: {
+    label: string;
+    target: number;
+    levelIdx: 1 | 2 | 3;
+    overrideKey: "l1" | "l2" | "l3";
+    isOverridden: boolean;
+  }) => {
     const done = reached >= levelIdx;
+    const [editing, setEditing] = useState(false);
+    const [value, setValue] = useState(target > 0 ? String(target) : "");
+    const commit = () => {
+      const n = parseFloat(value);
+      if (!isNaN(n) && n >= 0) setEmergencyLevelOverride(overrideKey, n);
+      setEditing(false);
+    };
     return (
       <div
-        key={label}
-        className={`flex-1 min-w-[8rem] rounded-2xl border px-3 py-2 ${
+        className={`group relative flex-1 min-w-[8rem] rounded-2xl border px-3 py-2 ${
           done ? "bg-sage-100 border-sage-300" : "bg-white border-sage-200"
         }`}
       >
         <p className={`text-[10px] uppercase tracking-widest font-semibold ${done ? "text-sage-700" : "text-sage-400"}`}>
           {label}
         </p>
-        <p className={`text-sm font-medium tabular-nums mt-0.5 ${done ? "text-sage-900" : "text-sage-500"}`}>
-          {target > 0 ? fmt(target, currency) : "—"}
-        </p>
+        {editing ? (
+          <div className="mt-0.5 flex items-center gap-1">
+            <input
+              inputMode="decimal"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commit();
+                if (e.key === "Escape") setEditing(false);
+              }}
+              autoFocus
+              className="w-full text-sm bg-white rounded px-2 py-0.5 outline-none focus:ring-2 focus:ring-sage-200 tabular-nums"
+            />
+            <button onClick={commit} className="text-sage-700 hover:text-sage-900 p-1" aria-label="OK">
+              <Check className="size-3.5" />
+            </button>
+            <button onClick={() => setEditing(false)} className="text-sage-400 hover:text-clay p-1" aria-label="Cancelar">
+              <X className="size-3.5" />
+            </button>
+          </div>
+        ) : (
+          <div className="mt-0.5 flex items-center gap-1">
+            <button
+              onClick={() => {
+                setValue(target > 0 ? String(target) : "");
+                setEditing(true);
+              }}
+              className={`text-sm font-medium tabular-nums text-left flex-1 hover:text-wine ${done ? "text-sage-900" : "text-sage-500"}`}
+              title="Editar"
+            >
+              {target > 0 ? fmt(target, currency) : "—"}
+            </button>
+            <button
+              onClick={() => {
+                setValue(target > 0 ? String(target) : "");
+                setEditing(true);
+              }}
+              className="opacity-0 group-hover:opacity-100 text-sage-400 hover:text-wine p-0.5"
+              aria-label="Editar"
+            >
+              <Pencil className="size-3" />
+            </button>
+            {isOverridden && (
+              <button
+                onClick={() => setEmergencyLevelOverride(overrideKey, null)}
+                className="opacity-0 group-hover:opacity-100 text-sage-400 hover:text-wine p-0.5"
+                aria-label="Restablecer"
+                title="Restablecer al valor por defecto"
+              >
+                <RotateCcw className="size-3" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
     );
   };
@@ -108,9 +188,9 @@ export function EmergencyFundCard() {
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {milestoneChip(t.emergency.level1, levels.l1, 1)}
-        {milestoneChip(t.emergency.level2, levels.l2Max, 2)}
-        {milestoneChip(t.emergency.level3, levels.l3Max, 3)}
+        <MilestoneChip label={t.emergency.level1} target={levels.l1} levelIdx={1} overrideKey="l1" isOverridden={override.l1 != null} />
+        <MilestoneChip label={t.emergency.level2} target={levels.l2Max} levelIdx={2} overrideKey="l2" isOverridden={override.l2 != null} />
+        <MilestoneChip label={t.emergency.level3} target={levels.l3Max} levelIdx={3} overrideKey="l3" isOverridden={override.l3 != null} />
       </div>
 
       <div className="mt-5 flex flex-wrap items-center gap-2">
