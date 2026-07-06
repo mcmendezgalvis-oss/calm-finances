@@ -41,6 +41,7 @@ export async function loadFromSupabase(userId: string) {
       linkedShieldId: l.linked_shield_id ?? undefined,
       linkedDebtId: l.linked_debt_id ?? undefined,
       permanent: l.permanent ?? undefined,
+      note: (l as { note?: string | null }).note ?? undefined,
     };
     const arr = linesByMonth.get(l.month_key) ?? [];
     arr.push(line);
@@ -67,6 +68,8 @@ export async function loadFromSupabase(userId: string) {
       type: t.type as ShieldTx["type"],
       amount: Number(t.amount),
       note: t.note ?? undefined,
+      source: ((t as { source?: string | null }).source ?? undefined) as ShieldTx["source"],
+      monthKey: (t as { month_key?: string | null }).month_key ?? undefined,
     };
     const arr = txByShield.get(t.shield_id) ?? [];
     arr.push(tx);
@@ -91,6 +94,8 @@ export async function loadFromSupabase(userId: string) {
       date: a.date,
       delta: Number(a.delta),
       note: a.note ?? undefined,
+      source: ((a as { source?: string | null }).source ?? undefined) as DebtAdjustment["source"],
+      monthKey: (a as { month_key?: string | null }).month_key ?? undefined,
     };
     const arr = adjByDebt.get(a.debt_id) ?? [];
     arr.push(adj);
@@ -236,6 +241,7 @@ async function pushSnapshot() {
           linked_debt_id: l.linkedDebtId ?? null,
           permanent: l.permanent ?? null,
           sort_order: idx,
+          note: l.note ?? null,
           updated_at: new Date().toISOString(),
         });
       });
@@ -273,6 +279,7 @@ async function pushSnapshot() {
       txRows.push({
         id: t.id, user_id: userId, shield_id: s.id,
         date: t.date, type: t.type, amount: t.amount, note: t.note ?? null,
+        source: t.source ?? null, month_key: t.monthKey ?? null,
       });
     }
     const txIds = new Set(txRows.map((r) => r.id as string));
@@ -305,6 +312,7 @@ async function pushSnapshot() {
       adjRows.push({
         id: a.id, user_id: userId, debt_id: d.id,
         date: a.date, delta: a.delta, note: a.note ?? null,
+        source: a.source ?? null, month_key: a.monthKey ?? null,
       });
     }
     const adjIds = new Set(adjRows.map((r) => r.id as string));

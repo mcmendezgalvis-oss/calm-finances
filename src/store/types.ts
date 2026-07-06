@@ -9,6 +9,7 @@ export interface BudgetLine {
   linkedShieldId?: string;
   linkedDebtId?: string;
   permanent?: boolean;
+  note?: string;
 }
 
 export interface MonthBudget {
@@ -30,7 +31,9 @@ export interface ShieldTx {
   amount: number;
   note?: string;
   /** Source of the entry — used to label auto entries from month close. */
-  source?: "manual" | "month-close" | "budget";
+  source?: "manual" | "month-close" | "budget" | "carry";
+  /** monthKey when this tx originated from a specific budgeted month. */
+  monthKey?: string;
 }
 
 export type ShieldKind = "emergency" | "initial" | "definitive" | "custom";
@@ -52,7 +55,9 @@ export interface DebtAdjustment {
   delta: number;
   note?: string;
   /** Source of the entry. */
-  source?: "manual" | "month-close" | "budget" | "bank";
+  source?: "manual" | "month-close" | "budget" | "bank" | "carry";
+  /** monthKey when this adjustment originated from a budgeted month. */
+  monthKey?: string;
 }
 
 export interface Debt {

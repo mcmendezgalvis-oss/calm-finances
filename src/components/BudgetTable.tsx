@@ -162,6 +162,20 @@ export function BudgetTable({
                         {t.budget.personalizedPlan}
                       </p>
                     )}
+
+                    {tab === "plan" && !disabled && (
+                      <input
+                        value={l.note ?? ""}
+                        onChange={(e) => updateLine(month.monthKey, l.id, { note: e.target.value })}
+                        placeholder="Nota (opcional): ej. Agua, Netflix…"
+                        className="col-span-full text-[11px] italic bg-transparent text-sage-500 placeholder:text-sage-300 outline-none focus:bg-white focus:ring-1 focus:ring-sage-200 rounded px-2 py-1 -mt-0.5"
+                      />
+                    )}
+                    {tab !== "plan" && l.note && (
+                      <p className="col-span-full text-[11px] italic text-sage-400 pl-2 -mt-0.5">
+                        · {l.note}
+                      </p>
+                    )}
                   </div>
                 );
               })}

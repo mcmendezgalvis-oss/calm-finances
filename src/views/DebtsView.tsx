@@ -6,7 +6,8 @@ import { useApp } from "@/store/useApp";
 import { useI18n } from "@/i18n/I18nProvider";
 import { fmt } from "@/lib/finance";
 import { toast } from "sonner";
-import { InlineDatePicker } from "@/components/InlineDatePicker";
+import { MonthYearPicker } from "@/components/MonthYearPicker";
+import { formatMonthYear } from "@/lib/dates";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 function Confetti() {
@@ -184,9 +185,12 @@ export function DebtsView() {
             const isTarget = idx === 0 && !d.paid;
             const progress = d.initialBalance > 0 ? 1 - d.currentBalance / d.initialBalance : 0;
             const capitalPaid = Math.max(0, d.initialBalance - d.currentBalance);
+            // Total histórico de abonos: TODOS los movimientos negativos (delta < 0), sin filtrar por nota.
             const cashOut = d.adjustments
-              .filter((a) => a.delta < 0 && (a.note ?? "").toLowerCase().includes("pago"))
+              .filter((a) => a.delta < 0)
               .reduce((s, a) => s + -a.delta, 0);
+            const paidPct = d.initialBalance > 0 ? Math.min(100, (capitalPaid / d.initialBalance) * 100) : (d.paid ? 100 : 0);
+            const leftPct = Math.max(0, 100 - paidPct);
             return (
               <div
                 key={d.id}
@@ -248,7 +252,7 @@ export function DebtsView() {
                       className="font-serif text-2xl text-sage-900 text-right w-32 bg-transparent outline-none focus:bg-white rounded px-1 tabular-nums"
                     />
                     <p className="text-[10px] text-sage-400 mt-0.5 italic">
-                      {t.snowball.asOf} {new Date(d.adjustments[d.adjustments.length - 1]?.date ?? d.createdAt).toLocaleDateString()}
+                      {t.snowball.asOf} {formatMonthYear(d.adjustments[d.adjustments.length - 1]?.date ?? d.createdAt)}
                     </p>
                     <div className="flex gap-1 justify-end mt-1">
                       {!d.paid && (
@@ -272,19 +276,49 @@ export function DebtsView() {
                   </div>
                 </div>
 
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="mt-3 h-1.5 bg-white/60 rounded-full overflow-hidden cursor-help">
-                      <div
-                        className={`h-full ${d.paid ? "bg-sage-600" : isTarget ? "bg-clay" : "bg-sage-400"}`}
-                        style={{ width: `${Math.max(2, progress * 100)}%`, transition: "width 600ms" }}
-                      />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs">
-                    Capital pagado a la fecha: {fmt(capitalPaid, currency)}
-                  </TooltipContent>
-                </Tooltip>
+                {/* Bicolor progress bar: paid vs remaining */}
+                <div className="mt-3">
+                  <div className="flex h-2.5 rounded-full overflow-hidden bg-white/60 border border-sage-100">
+                    {paidPct > 0 && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div
+                            className="bg-sage-600 h-full cursor-help transition-[width] duration-700"
+                            style={{ width: `${paidPct}%` }}
+                            aria-label={`Deuda pagada ${paidPct.toFixed(0)}%`}
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">
+                          Deuda pagada: {fmt(capitalPaid, currency)} ({paidPct.toFixed(0)}%)
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                    {leftPct > 0 && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div
+                            className={`h-full cursor-help transition-[width] duration-700 ${isTarget ? "bg-clay" : "bg-terracotta"}`}
+                            style={{ width: `${leftPct}%` }}
+                            aria-label={`Deuda por pagar ${leftPct.toFixed(0)}%`}
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">
+                          Deuda por pagar: {fmt(d.currentBalance, currency)} ({leftPct.toFixed(0)}%)
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                  <div className="mt-1.5 flex items-center justify-between text-[10px] text-sage-500 gap-2 flex-wrap">
+                    <span className="inline-flex items-center gap-1">
+                      <span className="size-2 rounded-full bg-sage-600" />
+                      Pagada {paidPct.toFixed(0)}%
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <span className={`size-2 rounded-full ${isTarget ? "bg-clay" : "bg-terracotta"}`} />
+                      Por pagar {leftPct.toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
 
                 {!d.paid && (
                   <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -295,16 +329,16 @@ export function DebtsView() {
                       onChange={(e) => setPayAmount({ ...payAmount, [d.id]: e.target.value })}
                       className="text-xs bg-white rounded-full px-3 py-2 outline-none focus:ring-2 focus:ring-wine/40 w-32 tabular-nums"
                     />
-                    <InlineDatePicker
+                    <MonthYearPicker
                       date={payDate[d.id] ?? new Date()}
-                      onChange={(dd) => setPayDate({ ...payDate, [d.id]: dd })}
+                      onChange={(dd: Date) => setPayDate({ ...payDate, [d.id]: dd })}
                     />
                     <button
                       onClick={() => {
                         const n = parseFloat(payAmount[d.id] ?? "");
                         if (isNaN(n) || n <= 0) return;
                         const date = (payDate[d.id] ?? new Date()).toISOString();
-                        useApp.getState().registerDebtPayment(d.id, n, date, "Pago");
+                        useApp.getState().registerDebtPayment(d.id, n, date);
                         setPayAmount({ ...payAmount, [d.id]: "" });
                         toast(`− ${fmt(n, currency)}`);
                       }}
@@ -333,7 +367,7 @@ export function DebtsView() {
                           return (
                             <li key={a.id} className="flex items-center gap-2 text-sage-500 group py-0.5">
                               <span className="flex-1 min-w-0 truncate">
-                                {new Date(a.date).toLocaleDateString()} · {a.note ?? "—"}
+                                {formatMonthYear(a.date)} · {a.note ?? "—"}
                                 {src && (
                                   <span className="ml-1 text-[9px] uppercase tracking-widest text-sage-400 italic">· {src}</span>
                                 )}
@@ -394,7 +428,7 @@ export function DebtsView() {
                         })}
                         <li className="flex justify-between items-center pt-2 mt-1 border-t border-sage-100 font-bold text-sage-900">
                           <span className="inline-flex items-center gap-1">
-                            Total de Efectivo Destinado
+                            Total de Abonos a la deuda
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <button type="button" aria-label="Info total efectivo" className="text-sage-400 hover:text-wine font-normal">
@@ -402,7 +436,7 @@ export function DebtsView() {
                                 </button>
                               </TooltipTrigger>
                               <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed">
-                                Suma bruta de todos los pagos registrados (incluye capital, intereses y comisiones).
+                                Suma de todos los registros de abono a esta deuda en toda su historia (incluye capital, intereses y comisiones).
                               </TooltipContent>
                             </Tooltip>
                           </span>

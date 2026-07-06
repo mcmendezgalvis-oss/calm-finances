@@ -22,6 +22,7 @@ export type Database = {
           linked_shield_id: string | null
           month_key: string
           name: string
+          note: string | null
           permanent: boolean | null
           planned: number
           real: number
@@ -36,6 +37,7 @@ export type Database = {
           linked_shield_id?: string | null
           month_key: string
           name: string
+          note?: string | null
           permanent?: boolean | null
           planned?: number
           real?: number
@@ -50,6 +52,7 @@ export type Database = {
           linked_shield_id?: string | null
           month_key?: string
           name?: string
+          note?: string | null
           permanent?: boolean | null
           planned?: number
           real?: number
@@ -73,7 +76,9 @@ export type Database = {
           debt_id: string
           delta: number
           id: string
+          month_key: string | null
           note: string | null
+          source: string | null
           user_id: string
         }
         Insert: {
@@ -81,7 +86,9 @@ export type Database = {
           debt_id: string
           delta: number
           id: string
+          month_key?: string | null
           note?: string | null
+          source?: string | null
           user_id: string
         }
         Update: {
@@ -89,7 +96,9 @@ export type Database = {
           debt_id?: string
           delta?: number
           id?: string
+          month_key?: string | null
           note?: string | null
+          source?: string | null
           user_id?: string
         }
         Relationships: [
@@ -212,8 +221,10 @@ export type Database = {
           amount: number
           date: string
           id: string
+          month_key: string | null
           note: string | null
           shield_id: string
+          source: string | null
           type: string
           user_id: string
         }
@@ -221,8 +232,10 @@ export type Database = {
           amount: number
           date?: string
           id: string
+          month_key?: string | null
           note?: string | null
           shield_id: string
+          source?: string | null
           type: string
           user_id: string
         }
@@ -230,8 +243,10 @@ export type Database = {
           amount?: number
           date?: string
           id?: string
+          month_key?: string | null
           note?: string | null
           shield_id?: string
+          source?: string | null
           type?: string
           user_id?: string
         }

@@ -141,7 +141,7 @@ export const dict: Record<Lang, DictShape> = {
     appName: "Finanzas en Calma",
     tagline: "Tu paz financiera comienza con una intención clara.",
     nav: {
-      dashboard: "Mi Calma",
+      dashboard: "Dashboard",
       budget: "Presupuesto",
       shields: "Mis escudos y metas",
       debts: "Adiós a las Cadenas",
@@ -400,7 +400,7 @@ export const dict: Record<Lang, DictShape> = {
     appName: "Finance in Calm",
     tagline: "Your financial peace begins with a clear intention.",
     nav: {
-      dashboard: "My Calm",
+      dashboard: "Dashboard",
       budget: "Budget",
       shields: "My shields & goals",
       debts: "Goodbye to Chains",

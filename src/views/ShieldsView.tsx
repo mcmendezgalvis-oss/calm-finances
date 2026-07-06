@@ -6,7 +6,8 @@ import { useApp, currentMonthKey } from "@/store/useApp";
 import { useI18n } from "@/i18n/I18nProvider";
 import { fmt, EMERGENCY_FUND_ID } from "@/lib/finance";
 import { toast } from "sonner";
-import { InlineDatePicker } from "@/components/InlineDatePicker";
+import { MonthYearPicker } from "@/components/MonthYearPicker";
+import { formatMonthYear } from "@/lib/dates";
 import { EmergencyFundCard } from "@/components/EmergencyFundCard";
 import { DeleteGoalDialog } from "@/components/DeleteGoalDialog";
 
@@ -104,7 +105,7 @@ function ShieldCard({ shieldId, locked = false }: { shieldId?: string; locked?: 
           placeholder="0.00"
           className="flex-1 min-w-[8rem] text-sm bg-sage-50 rounded-full px-4 py-2 outline-none focus:ring-2 focus:ring-sage-200 tabular-nums"
         />
-        <InlineDatePicker date={date} onChange={setDate} />
+        <MonthYearPicker date={date} onChange={setDate} />
         <button
           onClick={() => {
             const n = parseFloat(amount);
@@ -148,11 +149,12 @@ function ShieldCard({ shieldId, locked = false }: { shieldId?: string; locked?: 
                 const isEditing = editingTxId === h.id;
                 const src = h.source === "month-close" ? t.historyRow.autoFromClose
                   : h.source === "budget" ? t.historyRow.autoFromBudget
+                  : h.source === "carry" ? "sobrante"
                   : null;
                 return (
                   <li key={h.id} className="flex items-center gap-2 text-sage-500 group py-0.5">
                     <span className="flex-1 min-w-0 truncate">
-                      {new Date(h.date).toLocaleDateString()}
+                      {formatMonthYear(h.date)}
                       {h.note && <span className="ml-1 text-sage-400">· {h.note}</span>}
                       {src && <span className="ml-1 text-[9px] uppercase tracking-widest text-sage-400 italic">· {src}</span>}
                     </span>

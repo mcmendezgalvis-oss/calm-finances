@@ -25,6 +25,8 @@ export function BudgetView() {
   const resetActual = useApp((s) => s.resetActual);
   const currency = useApp((s) => s.profile.currency);
   const [tab, setTab] = useState<BudgetTab>("plan");
+  // Track whether the user has already used "Copy previous" this session for a given month.
+  const [copiedByMonth, setCopiedByMonth] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     ensureMonth(monthKey);
@@ -46,16 +48,18 @@ export function BudgetView() {
     return monthKeyOf(new Date(y, m - 2, 1));
   }, [monthKey]);
   const hasPrev = !!months[prevKey] && months[prevKey].lines.length > 0;
-  // "Empty" ignores system-injected lines (linked debts/shields and the auto surplus carry).
-  const isEmpty = month.lines.filter(
-    (l) => !l.linkedDebtId && !l.linkedShieldId && !(l.group === "income" && isCarryLineName(l.name)),
-  ).length === 0;
+  const copiedThisMonth = !!copiedByMonth[monthKey];
+  const showCopy = hasPrev && !closed && !copiedThisMonth;
 
   const overdrawn = Boolean(month.overdrawn);
   const balancePositive = realBalance >= -0.005;
 
+  const tabBg =
+    tab === "plan" ? "bg-white" : tab === "real" ? "bg-[#FFF8F8]" : "bg-[#F4F9F5]";
+
   return (
     <AppShell>
+      <div className={`-mx-5 md:-mx-10 -my-6 md:-my-10 px-5 md:px-10 py-6 md:py-10 min-h-full transition-colors ${tabBg}`}>
       <header className="mb-8">
         <div className="flex flex-wrap gap-4 items-end justify-between">
           <div>
@@ -84,9 +88,9 @@ export function BudgetView() {
           <span className="px-3 py-1 bg-white border border-sage-200 rounded-full text-[11px] font-medium text-sage-600 uppercase tracking-tight italic">
             {t.budget.zeroBased}
           </span>
-          {isEmpty && hasPrev && (
+          {showCopy && (
             <button
-              onClick={() => copyFromPrevious(monthKey)}
+              onClick={() => { copyFromPrevious(monthKey); setCopiedByMonth((m) => ({ ...m, [monthKey]: true })); }}
               className="inline-flex items-center gap-2 text-xs px-4 py-2 bg-sage-900 text-sage-50 rounded-full hover:bg-sage-700 transition-colors"
             >
               <Copy className="size-3.5" /> {t.budget.copyPrev}
@@ -105,6 +109,8 @@ export function BudgetView() {
                 const msg = tab === "plan" ? t.budgetReset.confirmPlan : t.budgetReset.confirmActual;
                 if (!window.confirm(msg)) return;
                 if (tab === "plan") resetPlan(monthKey); else resetActual(monthKey);
+                // Reset also re-enables the "Copy previous" button so the user can rebuild.
+                setCopiedByMonth((m) => ({ ...m, [monthKey]: false }));
                 toast.success(t.budgetReset.doneToast);
               }}
               className="inline-flex items-center gap-2 text-xs px-4 py-2 rounded-full bg-white border border-sage-200 text-sage-700 hover:bg-sage-50 transition-colors"
@@ -194,6 +200,7 @@ export function BudgetView() {
           onReopened={() => setReopenOpen(false)}
         />
       )}
+      </div>
     </AppShell>
   );
 }
