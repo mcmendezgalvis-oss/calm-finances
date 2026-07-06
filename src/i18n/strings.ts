@@ -643,6 +643,7 @@ export const dict: Record<Lang, DictShape> = {
       myCalmTitle: "Real balance this month",
       myCalmPositive: "Your month closed with calm. This surplus can go to your debts, shields, or next month.",
       myCalmNegative: "Your month closed overdrawn. Look at where the difference came from (new debt, a loan?) and update your balances in Goodbye to Chains.",
+      myCalmZero: "Your month closed with calm.",
     },
     deleteGoal: {
       btn: "Delete goal",
