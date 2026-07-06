@@ -120,6 +120,7 @@ type DictShape = {
     myCalmTitle: string;
     myCalmPositive: string;
     myCalmNegative: string;
+    myCalmZero: string;
   };
   deleteGoal: {
     btn: string;
