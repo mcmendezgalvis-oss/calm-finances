@@ -12,8 +12,6 @@ import { generateMonthReport, generateYearReport } from "@/lib/pdf";
 import { DashboardPeriodSelector, type DashboardPeriod } from "@/components/DashboardPeriodSelector";
 import { HScrollChart } from "@/components/HScrollChart";
 import { IncomeDestinationPie } from "@/components/charts/IncomeDestinationPie";
-import { EmergencyFundEvolutionChart } from "@/components/charts/EmergencyFundEvolutionChart";
-import { GoalsBarChart } from "@/components/charts/GoalsBarChart";
 import { DebtsBarChart } from "@/components/charts/DebtsBarChart";
 import { celebrateTrophy } from "@/lib/trophies";
 import { ChartTitleHelp } from "@/components/charts/ChartTitleHelp";
