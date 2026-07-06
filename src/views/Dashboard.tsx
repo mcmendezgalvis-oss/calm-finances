@@ -9,7 +9,6 @@ import { useApp, isPremiumNow, monthKeyOf, currentMonthKey } from "@/store/useAp
 import { useI18n } from "@/i18n/I18nProvider";
 import { groupTotals, fmt } from "@/lib/finance";
 import { generateMonthReport, generateYearReport } from "@/lib/pdf";
-import { DashboardPeriodSelector, type DashboardPeriod } from "@/components/DashboardPeriodSelector";
 import { HScrollChart } from "@/components/HScrollChart";
 import { IncomeDestinationPie } from "@/components/charts/IncomeDestinationPie";
 import { DebtsBarChart } from "@/components/charts/DebtsBarChart";
@@ -23,11 +22,8 @@ export function Dashboard() {
   const ensureMonth = state.ensureMonth;
   const ensureEmergencyFund = state.ensureEmergencyFund;
   const today = new Date();
-  const [period, setPeriod] = useState<DashboardPeriod>({
-    year: today.getFullYear(),
-    month: today.getMonth() + 1,
-    mode: "year",
-  });
+  const [evolutionYear, setEvolutionYear] = useState<number>(today.getFullYear());
+  const evolutionYears = Array.from({ length: 8 }, (_, i) => today.getFullYear() - 5 + i);
   const monthKey = currentMonthKey();
   const currency = profile.currency;
 
@@ -38,7 +34,7 @@ export function Dashboard() {
 
   const evolutionData = useMemo(() => {
     const data: { month: string; income: number; expenses: number }[] = [];
-    const ranges: Date[] = Array.from({ length: 12 }, (_, m) => new Date(period.year, m, 1));
+    const ranges: Date[] = Array.from({ length: 12 }, (_, m) => new Date(evolutionYear, m, 1));
     for (const d of ranges) {
       const key = monthKeyOf(d);
       const mb = state.months[key];
@@ -50,7 +46,7 @@ export function Dashboard() {
       });
     }
     return data;
-  }, [state.months, lang, period.year]);
+  }, [state.months, lang, evolutionYear]);
 
   const premium = isPremiumNow(profile);
   const greeting = profile.name
@@ -83,7 +79,7 @@ export function Dashboard() {
           </button>
           <button
             disabled={!premium}
-            onClick={() => generateYearReport(state, period.year)}
+            onClick={() => generateYearReport(state, evolutionYear)}
             className="inline-flex items-center gap-2 bg-white border border-sage-200 text-sage-700 text-sm px-4 py-2.5 rounded-full hover:bg-sage-50 transition-colors disabled:opacity-40"
           >
             <FileDown className="size-4" /> {t.dashboard.reportYear}
@@ -91,19 +87,25 @@ export function Dashboard() {
         </div>
       </header>
 
-      <div className="sticky top-0 z-20 -mx-5 md:-mx-10 px-5 md:px-10 py-3 mb-6 bg-sage-50/90 backdrop-blur border-y border-sage-100">
-        <DashboardPeriodSelector value={period} onChange={setPeriod} />
-      </div>
-
       <IncomeDestinationPie />
 
       <PremiumGate allowReadOnly>
         <div className="grid grid-cols-1 gap-6">
           <section className="bg-white border border-sage-100 rounded-3xl p-6">
-            <ChartTitleHelp
-              title={`${t.dashboard.evolution} · ${period.year}`}
-              help="Compara tus ingresos totales frente a tus gastos mes a mes. Tu objetivo es mantener siempre la barra de ingresos por encima."
-            />
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+              <ChartTitleHelp
+                title={t.dashboard.evolution}
+                help="Compara tus ingresos totales frente a tus gastos mes a mes. Tu objetivo es mantener siempre la barra de ingresos por encima."
+              />
+              <select
+                value={evolutionYear}
+                onChange={(e) => setEvolutionYear(Number(e.target.value))}
+                className="h-8 bg-sage-50 border border-sage-200 rounded-full text-xs text-sage-800 outline-none px-3 font-medium tabular-nums"
+                aria-label="Año"
+              >
+                {evolutionYears.map((y) => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
             <HScrollChart minWidth={evoMinWidth} height={240}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={evolutionData}>
@@ -119,7 +121,7 @@ export function Dashboard() {
             </HScrollChart>
           </section>
 
-          <DebtsBarChart year={period.year} />
+          <DebtsBarChart />
         </div>
       </PremiumGate>
     </AppShell>

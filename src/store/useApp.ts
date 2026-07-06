@@ -27,6 +27,18 @@ export function emptyMonth(monthKey: string): MonthBudget {
   return { monthKey, lines: [] };
 }
 
+/** ISO of the first day of the month expressed by a "YYYY-MM" monthKey. */
+function firstOfMonthKeyISO(monthKey: string): string {
+  const [y, m] = monthKey.split("-").map(Number);
+  return new Date(y, m - 1, 1).toISOString();
+}
+
+/** Names used across languages for the "previous month surplus" income line. */
+function isCarrySurplusName(name: string): boolean {
+  const n = name.trim().toLowerCase();
+  return n === "sobrante mes anterior" || n === "previous month surplus" || n === "surplus from previous month";
+}
+
 interface Actions {
   ensureMonth: (monthKey: string) => MonthBudget;
   ensureEmergencyFund: () => void;
@@ -97,7 +109,7 @@ function reconcileBudgetSourceForMonth(
 ): { shields: Shield[]; debts: Debt[] } {
   const month = state.months[monthKey];
   if (!month) return { shields: state.shields, debts: state.debts };
-  const now = new Date().toISOString();
+  const entryDate = firstOfMonthKeyISO(monthKey);
 
   // Debts
   const debtsByLinked = new Map<string, BudgetLine>();
@@ -116,7 +128,7 @@ function reconcileBudgetSourceForMonth(
       desired > 0
         ? [
             ...kept,
-            { id: uid(), date: now, delta: -desired, note: "Abono desde presupuesto", source: "budget", monthKey } as DebtAdjustment,
+            { id: uid(), date: entryDate, delta: -desired, note: "Abono desde presupuesto", source: "budget", monthKey } as DebtAdjustment,
           ]
         : kept;
     const newBalance = Math.max(0, d.currentBalance - priorSum + (desired > 0 ? -desired : 0));
@@ -139,7 +151,7 @@ function reconcileBudgetSourceForMonth(
       desired !== 0
         ? [
             ...kept,
-            { id: uid(), date: now, type: (desired >= 0 ? "deposit" : "withdraw"), amount: Math.abs(desired), note: "Aporte desde presupuesto", source: "budget", monthKey } as ShieldTx,
+            { id: uid(), date: entryDate, type: (desired >= 0 ? "deposit" : "withdraw"), amount: Math.abs(desired), note: "Aporte desde presupuesto", source: "budget", monthKey } as ShieldTx,
           ]
         : kept;
     const newBalance = Math.max(0, sh.balance - priorSigned + desired);
@@ -299,6 +311,7 @@ export const useApp = create<Store>()(
 
           if (before && patch.real !== undefined && patch.real !== before.real) {
             const delta = patch.real - before.real;
+            const entryDate = firstOfMonthKeyISO(monthKey);
             if (before.linkedShieldId) {
               shields = shields.map((sh) =>
                 sh.id === before.linkedShieldId
@@ -307,7 +320,7 @@ export const useApp = create<Store>()(
                       balance: sh.balance + delta,
                       history: [
                         ...sh.history,
-                        { id: uid(), date: new Date().toISOString(), type: delta >= 0 ? "deposit" : "withdraw", amount: Math.abs(delta), note: "Aporte desde presupuesto", source: "budget", monthKey } as ShieldTx,
+                        { id: uid(), date: entryDate, type: delta >= 0 ? "deposit" : "withdraw", amount: Math.abs(delta), note: "Aporte desde presupuesto", source: "budget", monthKey } as ShieldTx,
                       ],
                     }
                   : sh,
@@ -337,7 +350,7 @@ export const useApp = create<Store>()(
                   paidAt: justPaid ? new Date().toISOString() : dbt.paidAt,
                   adjustments: [
                     ...dbt.adjustments,
-                    { id: uid(), date: new Date().toISOString(), delta: -delta, note: "Abono desde presupuesto", source: "budget", monthKey } as DebtAdjustment,
+                    { id: uid(), date: entryDate, delta: -delta, note: "Abono desde presupuesto", source: "budget", monthKey } as DebtAdjustment,
                   ],
                 };
               });
@@ -363,11 +376,7 @@ export const useApp = create<Store>()(
           if (!prev) return s;
           const existing = s.months[monthKey];
           const existingLines = existing?.lines ?? [];
-          // Names of "carry surplus" lines to never copy from prev (in any language).
-          const isCarryName = (name: string) => {
-            const n = name.trim().toLowerCase();
-            return n === "sobrante mes anterior" || n === "previous month surplus" || n === "surplus from previous month";
-          };
+          const isCarryName = isCarrySurplusName;
           // Map existing linked lines so we can update their planned values instead
           // of skipping them (they were auto-injected by syncLinkedLines with planned=0).
           const existingByShield = new Map<string, number>();
@@ -400,7 +409,9 @@ export const useApp = create<Store>()(
         set((s) => {
           const month = s.months[monthKey];
           if (!month || month.closed) return s;
-          const lines = month.lines.map((l) => ({ ...l, planned: 0 }));
+          const lines = month.lines.map((l) =>
+            l.group === "income" && isCarrySurplusName(l.name) ? l : { ...l, planned: 0 },
+          );
           return { months: { ...s.months, [monthKey]: { ...month, lines } } };
         }),
 
@@ -408,7 +419,9 @@ export const useApp = create<Store>()(
         set((s) => {
           const month = s.months[monthKey];
           if (!month || month.closed) return s;
-          const lines = month.lines.map((l) => ({ ...l, real: 0 }));
+          const lines = month.lines.map((l) =>
+            l.group === "income" && isCarrySurplusName(l.name) ? l : { ...l, real: 0 },
+          );
           return { months: { ...s.months, [monthKey]: { ...month, lines } } };
         }),
 

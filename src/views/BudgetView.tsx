@@ -15,9 +15,20 @@ function isCarryLineName(name: string) {
   return n === "sobrante mes anterior" || n === "previous month surplus" || n === "surplus from previous month";
 }
 
+const LAST_MONTH_KEY_STORAGE = "budget:lastMonthKey";
+
+function readInitialMonthKey(): string {
+  if (typeof window === "undefined") return currentMonthKey();
+  try {
+    const saved = window.localStorage.getItem(LAST_MONTH_KEY_STORAGE);
+    if (saved && /^\d{4}-\d{2}$/.test(saved)) return saved;
+  } catch { /* ignore */ }
+  return currentMonthKey();
+}
+
 export function BudgetView() {
   const { t } = useI18n();
-  const [monthKey, setMonthKey] = useState(currentMonthKey());
+  const [monthKey, setMonthKey] = useState<string>(() => readInitialMonthKey());
   const ensureMonth = useApp((s) => s.ensureMonth);
   const months = useApp((s) => s.months);
   const copyFromPrevious = useApp((s) => s.copyFromPrevious);
@@ -31,6 +42,10 @@ export function BudgetView() {
   useEffect(() => {
     ensureMonth(monthKey);
   }, [monthKey, ensureMonth]);
+
+  useEffect(() => {
+    try { window.localStorage.setItem(LAST_MONTH_KEY_STORAGE, monthKey); } catch { /* ignore */ }
+  }, [monthKey]);
 
   const month = months[monthKey] ?? { monthKey, lines: [] };
   const u = unassigned(month);
