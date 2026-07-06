@@ -381,6 +381,7 @@ export const dict: Record<Lang, DictShape> = {
       myCalmTitle: "Balance real del mes",
       myCalmPositive: "Tu mes cerró con calma. Este sobrante puede ir a tus deudas, escudos, o al próximo mes.",
       myCalmNegative: "Tu mes cerró sobregirado. Revisa de dónde vino la diferencia (¿deuda nueva, préstamo?) y actualiza tus saldos en Adiós a las Cadenas.",
+      myCalmZero: "Tu mes cerró con calma.",
     },
     deleteGoal: {
       btn: "Eliminar meta",
