@@ -311,6 +311,7 @@ export const useApp = create<Store>()(
 
           if (before && patch.real !== undefined && patch.real !== before.real) {
             const delta = patch.real - before.real;
+            const entryDate = firstOfMonthKeyISO(monthKey);
             if (before.linkedShieldId) {
               shields = shields.map((sh) =>
                 sh.id === before.linkedShieldId
@@ -319,7 +320,7 @@ export const useApp = create<Store>()(
                       balance: sh.balance + delta,
                       history: [
                         ...sh.history,
-                        { id: uid(), date: new Date().toISOString(), type: delta >= 0 ? "deposit" : "withdraw", amount: Math.abs(delta), note: "Aporte desde presupuesto", source: "budget", monthKey } as ShieldTx,
+                        { id: uid(), date: entryDate, type: delta >= 0 ? "deposit" : "withdraw", amount: Math.abs(delta), note: "Aporte desde presupuesto", source: "budget", monthKey } as ShieldTx,
                       ],
                     }
                   : sh,
@@ -349,7 +350,7 @@ export const useApp = create<Store>()(
                   paidAt: justPaid ? new Date().toISOString() : dbt.paidAt,
                   adjustments: [
                     ...dbt.adjustments,
-                    { id: uid(), date: new Date().toISOString(), delta: -delta, note: "Abono desde presupuesto", source: "budget", monthKey } as DebtAdjustment,
+                    { id: uid(), date: entryDate, delta: -delta, note: "Abono desde presupuesto", source: "budget", monthKey } as DebtAdjustment,
                   ],
                 };
               });
@@ -375,11 +376,7 @@ export const useApp = create<Store>()(
           if (!prev) return s;
           const existing = s.months[monthKey];
           const existingLines = existing?.lines ?? [];
-          // Names of "carry surplus" lines to never copy from prev (in any language).
-          const isCarryName = (name: string) => {
-            const n = name.trim().toLowerCase();
-            return n === "sobrante mes anterior" || n === "previous month surplus" || n === "surplus from previous month";
-          };
+          const isCarryName = isCarrySurplusName;
           // Map existing linked lines so we can update their planned values instead
           // of skipping them (they were auto-injected by syncLinkedLines with planned=0).
           const existingByShield = new Map<string, number>();
@@ -412,7 +409,9 @@ export const useApp = create<Store>()(
         set((s) => {
           const month = s.months[monthKey];
           if (!month || month.closed) return s;
-          const lines = month.lines.map((l) => ({ ...l, planned: 0 }));
+          const lines = month.lines.map((l) =>
+            l.group === "income" && isCarrySurplusName(l.name) ? l : { ...l, planned: 0 },
+          );
           return { months: { ...s.months, [monthKey]: { ...month, lines } } };
         }),
 
@@ -420,7 +419,9 @@ export const useApp = create<Store>()(
         set((s) => {
           const month = s.months[monthKey];
           if (!month || month.closed) return s;
-          const lines = month.lines.map((l) => ({ ...l, real: 0 }));
+          const lines = month.lines.map((l) =>
+            l.group === "income" && isCarrySurplusName(l.name) ? l : { ...l, real: 0 },
+          );
           return { months: { ...s.months, [monthKey]: { ...month, lines } } };
         }),
 
