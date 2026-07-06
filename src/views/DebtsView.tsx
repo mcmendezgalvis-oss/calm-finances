@@ -8,7 +8,6 @@ import { fmt } from "@/lib/finance";
 import { toast } from "sonner";
 import { MonthYearPicker } from "@/components/MonthYearPicker";
 import { formatMonthYear } from "@/lib/dates";
-import { useI18n as _u } from "@/i18n/I18nProvider";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 function Confetti() {
