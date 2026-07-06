@@ -367,7 +367,7 @@ export function DebtsView() {
                           return (
                             <li key={a.id} className="flex items-center gap-2 text-sage-500 group py-0.5">
                               <span className="flex-1 min-w-0 truncate">
-                                {new Date(a.date).toLocaleDateString()} · {a.note ?? "—"}
+                                {formatMonthYear(a.date)} · {a.note ?? "—"}
                                 {src && (
                                   <span className="ml-1 text-[9px] uppercase tracking-widest text-sage-400 italic">· {src}</span>
                                 )}
@@ -428,7 +428,7 @@ export function DebtsView() {
                         })}
                         <li className="flex justify-between items-center pt-2 mt-1 border-t border-sage-100 font-bold text-sage-900">
                           <span className="inline-flex items-center gap-1">
-                            Total de Efectivo Destinado
+                            Total de Abonos a la deuda
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <button type="button" aria-label="Info total efectivo" className="text-sage-400 hover:text-wine font-normal">
@@ -436,7 +436,7 @@ export function DebtsView() {
                                 </button>
                               </TooltipTrigger>
                               <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed">
-                                Suma bruta de todos los pagos registrados (incluye capital, intereses y comisiones).
+                                Suma de todos los registros de abono a esta deuda en toda su historia (incluye capital, intereses y comisiones).
                               </TooltipContent>
                             </Tooltip>
                           </span>
