@@ -710,7 +710,7 @@ export const useApp = create<Store>()(
               paidAt: newBal === 0 && !d.paid ? closedAt : d.paidAt,
               adjustments: [
                 ...d.adjustments,
-                { id: uid(), date: closedAt, delta: -allocation.amount, note: "Sobrante de cierre de mes", source: "month-close" } as DebtAdjustment,
+                { id: uid(), date: closedAt, delta: -allocation.amount, note: "Sobrante del mes anterior", source: "carry", monthKey } as DebtAdjustment,
               ],
             };
           });
@@ -720,11 +720,16 @@ export const useApp = create<Store>()(
               ? {
                   ...sh,
                   balance: sh.balance + allocation.amount,
-                  history: [...sh.history, { id: uid(), date: closedAt, type: "deposit", amount: allocation.amount, note: "Sobrante de cierre de mes", source: "month-close" } as ShieldTx],
+                  history: [...sh.history, { id: uid(), date: closedAt, type: "deposit", amount: allocation.amount, note: "Sobrante del mes anterior", source: "carry", monthKey } as ShieldTx],
                 }
               : sh,
           );
         }
+
+        // Reconcile "budget"-source entries for this month so cierre → reapertura → cierre never duplica.
+        // For each linked line, ensure the shield/debt has exactly ONE consolidated "budget" entry
+        // whose amount matches line.real. Manual and carry entries are never touched.
+        ({ shields, debts } = reconcileBudgetSourceForMonth({ ...s, shields, debts, months }, monthKey));
 
         months[monthKey] = {
           ...month,
