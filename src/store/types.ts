@@ -104,4 +104,5 @@ export interface AppState {
   shields: Shield[];
   debts: Debt[];
   trophies: Trophy[];
+  emergencyLevelsOverride?: { l1?: number; l2?: number; l3?: number };
 }
