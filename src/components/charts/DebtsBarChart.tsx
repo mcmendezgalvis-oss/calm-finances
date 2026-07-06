@@ -15,7 +15,11 @@ export function DebtsBarChart({ year: yearProp }: { year?: number } = {}) {
   const today = new Date();
   const [year, setYear] = useState<number>(yearProp ?? today.getFullYear());
   const years = Array.from({ length: 8 }, (_, i) => today.getFullYear() - 5 + i);
-  const currentMonthIdx = today.getFullYear() === year ? today.getMonth() : (year < today.getFullYear() ? 12 : -1);
+  // Month index (0..11) from which we show the live "Saldo Actual" instead of
+  // the reconstructed historic balance. Set to 12 (never matches) for past
+  // years and 0 for future years so the chart is always in sync.
+  const liveFromMonthIdx =
+    year < today.getFullYear() ? 12 : year > today.getFullYear() ? 0 : today.getMonth();
 
   const data = useMemo(() => {
     return Array.from({ length: 12 }, (_, m) => {
@@ -32,7 +36,7 @@ export function DebtsBarChart({ year: yearProp }: { year?: number } = {}) {
         }
         // For the current calendar month and future months, reflect the
         // manually-entered "Saldo Actual" live so the chart updates reactively.
-        if (m >= currentMonthIdx && currentMonthIdx >= 0) {
+        if (m >= liveFromMonthIdx) {
           row[dbt.id] = Math.max(0, dbt.currentBalance);
         } else {
           let balance = dbt.initialBalance;
@@ -45,7 +49,7 @@ export function DebtsBarChart({ year: yearProp }: { year?: number } = {}) {
       }
       return row;
     });
-  }, [debts, year, lang, currentMonthIdx]);
+  }, [debts, year, lang, liveFromMonthIdx]);
 
   // Stable color per debt id, then render largest current balance first (base of stack).
   const colorById = useMemo(() => {
