@@ -1,42 +1,43 @@
 ## Cambios a implementar
 
-### 1. "Empezar de cero" respeta el sobrante del mes anterior
-En `src/store/useApp.ts`, dentro de `resetPlan` y `resetActual`, excluir del reseteo las líneas de ingreso cuyo nombre sea "sobrante mes anterior" / "previous month surplus" (misma regla que ya usa `copyFromPrevious`). El resto de líneas se ponen a 0 como hasta ahora.
+### 1. Gráfico de deudas: de barras apiladas a Donut reactivo
 
-### 2. Persistencia del mes activo en Presupuesto
-En `src/views/BudgetView.tsx`:
-- Inicializar `monthKey` desde `localStorage.getItem("budget:lastMonthKey")`, con fallback a `currentMonthKey()`.
-- En un `useEffect`, guardar en `localStorage` cada vez que cambia el mes seleccionado.
-- La pestaña sigue arrancando siempre en `"plan"` (ya es el valor inicial de `useState<BudgetTab>("plan")`, se confirma que no se persiste).
+Reemplazar el contenido de `src/components/charts/DebtsBarChart.tsx` (se mantiene el nombre del archivo/exports para no tocar imports en `Dashboard.tsx`):
 
-### 3. Fecha correcta del histórico de deudas al inyectar desde el presupuesto
-El bug está en que se guarda `new Date().toISOString()` (hoy real) en vez de la fecha del mes del presupuesto. En `src/store/useApp.ts`:
-- Añadir helper `firstOfMonthKeyISO(monthKey)` que devuelve el ISO del día 1 de ese mes.
-- En `reconcileBudgetSourceForMonth`, usar esa fecha para los nuevos `DebtAdjustment` y `ShieldTx` con `source: "budget"` (en lugar de `now`).
-- En `updateLine`, cuando el cambio proviene de una línea vinculada (`linkedDebtId` / `linkedShieldId`), usar también la fecha del `monthKey` del presupuesto activo, no `new Date()`.
-- Los ajustes manuales (registrados desde la vista Deudas/Escudos) siguen usando la fecha real / la fecha que elija el usuario.
+- Sustituir el `BarChart` mensual por un `PieChart` con `Pie` en modo dona (`innerRadius` + `outerRadius`) de recharts.
+- Datos: suscribirse a `debts` con `useApp((s) => s.debts)` (ya lo hace) y calcular en `useMemo([debts, currency])` un array `[{ id, name, value: currentBalance, color }]` filtrando deudas con `currentBalance <= 0`. El total es `sum(currentBalance)`; el porcentaje se calcula por segmento.
+- Cada `<Cell />` usa el color estable del `colorById` existente (paleta actual).
+- Etiquetas: labels alrededor con `Nombre — X%`. Tooltip personalizado mostrando: Nombre, monto formateado con `fmt(value, currency)` y porcentaje con 1 decimal. Leyenda al pie con `Nombre — fmt(value)`.
+- Eliminar el selector de año interno y el helper `YearSelect` (un donut de saldo actual no tiene eje temporal). También se puede eliminar la prop opcional `year`.
+- Estado vacío: si no hay deudas o el total es 0, mostrar el mismo mensaje `t.dashboard.noHistoryYet` que hoy.
+- Reactividad: la suscripción `useApp((s) => s.debts)` ya dispara re-render cuando `updateDebt` (usado por el input "Saldo Actual" en `DebtsView`) muta el estado en Zustand. Verificar que el selector devuelve la referencia del array del store (sin `.map`/`.filter` dentro del selector) para que Zustand notifique cambios; el `useMemo` depende de `debts` para recalcular al instante.
 
-### 4. Dashboard: sincronización reactiva de deudas + un selector por gráfico
+En `Dashboard.tsx` no se cambia nada: sigue renderizando `<DebtsBarChart />` sin props. El título sigue siendo `t.dashboard.debtCurve` (mismo copy solicitado por el usuario: "El derrumbe de las deudas").
 
-**Sincronización del gráfico de deudas** (`src/components/charts/DebtsBarChart.tsx`):
-- Cambiar el cálculo para que la barra del mes "actual del calendario" y meses futuros muestren `dbt.currentBalance` (el "Saldo Actual" editable), en lugar del saldo reconstruido a partir de `adjustments`. Los meses pasados siguen reconstruyéndose desde `initialBalance + adjustments <= fin de mes`.
-- Como `currentBalance` ya está en el store zustand y el componente lo lee vía selector, editarlo en la vista de Deudas provoca re-render inmediato.
+### 2. Consentimiento legal en Sign Up
 
-**Selectores de año independientes por gráfico**:
-- Quitar el `DashboardPeriodSelector` global "sticky" de `src/views/Dashboard.tsx` (y su bloque envolvente).
-- `IncomeDestinationPie` ya tiene su propio selector de mes+año — dejarlo como está.
-- Añadir en `Dashboard.tsx` un `useState` local `evolutionYear` y renderizar un dropdown de año encima del gráfico de Evolución mensual. Pasar ese año al `useMemo` de `evolutionData`.
-- En `DebtsBarChart`, convertir el prop `year` a estado interno (con su propio dropdown de año en la cabecera del `<section>`). Ya no recibirá `year` desde el Dashboard.
-- Todos los selectores usan el mismo rango (año actual ±2/±5) para consistencia visual.
+En `src/routes/auth.index.tsx`:
 
-### Notas técnicas
+- Añadir estado `const [accepted, setAccepted] = useState(false)` y `const [showPrivacy, setShowPrivacy] = useState(false)`.
+- En el bloque `mode === "signup"`, justo encima del botón submit, insertar un `<label>` con `<input type="checkbox">` controlado por `accepted`. Texto: "Acepto los <button>Términos de Servicio</button> y la <button>Política de Privacidad</button>". Ambos enlaces son `<button type="button">` (no `<a target="_blank">`) que hacen `setShowPrivacy(true)` — según petición, ambos abren el mismo modal legal placeholder.
+- Botón submit: `disabled={loading || (mode === "signup" && !accepted)}`. Ya tiene `disabled:opacity-50`; se mantiene la clase para el estado opaco.
+- Al cambiar de `signup` a `login`, resetear `accepted` para que si vuelve a `signup` la casilla no quede marcada por accidente (opcional pero limpio).
 
-- No se toca la base de datos: los cambios de fecha solo afectan al valor `date` guardado en `debt_adjustments` / `shield_tx`, ya soportado por el esquema actual.
-- El helper `isCarryLineName` ya existe implícito en `copyFromPrevious`; se extraerá a función reusable dentro del archivo.
-- No se altera el layout de tabs ni la lógica de "Copiar mes anterior" / "Empezar de cero" recién ajustada.
+Modal de Política (mismo archivo, componente inline `<PrivacyModal open onClose />`):
+
+- Overlay `fixed inset-0 bg-sage-900/40` + tarjeta centrada `max-w-lg bg-white rounded-3xl p-6 shadow-lg` con estilo consistente al resto (sage/wine, serif para el título).
+- Contenido placeholder estructurado en secciones: "Política de Privacidad", "1. Protección de datos", "2. Encriptación y almacenamiento seguro", "3. Uso de tu información", "4. Tus derechos". Texto lorem-style genérico marcado claramente como plantilla.
+- Botón "Cerrar" abajo (`bg-sage-900 text-sage-50 rounded-full`), cierre también con ESC (`useEffect` + `keydown`) y click en overlay.
+- Scroll interno con `max-h-[80vh] overflow-y-auto` para pantallas pequeñas.
+
+Sin cambios de i18n (los strings van directos en español, coherente con el resto de `auth.index.tsx`). Sin cambios en la lógica de `supabase.auth.signUp` — el consentimiento se valida solo en cliente para desbloquear el botón, como pide el usuario.
 
 ### Archivos que se modificarán
-- `src/store/useApp.ts`
-- `src/views/BudgetView.tsx`
-- `src/views/Dashboard.tsx`
-- `src/components/charts/DebtsBarChart.tsx`
+
+- `src/components/charts/DebtsBarChart.tsx` — reescritura a Donut.
+- `src/routes/auth.index.tsx` — checkbox + modal.
+
+### Notas
+
+- No se toca el store, ni migraciones, ni `Dashboard.tsx`.
+- El error de hidratación reportado en `/auth` es un pequeño mismatch de SSR ya presente; la ruta usa `ssr: false` en `beforeLoad` pero React re-hidrata el shell. No forma parte de este cambio y no se aborda aquí para respetar el alcance.
