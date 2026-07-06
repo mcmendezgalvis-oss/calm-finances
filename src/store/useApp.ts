@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type {
-  AppState, BudgetLine, Debt, DebtAdjustment, GroupKey, MonthBudget,
+  AppState, BudgetLine, Debt, DebtAdjustment, GroupKey, MonthBudget, Shield,
   ShieldTx, Trophy, TrophyKind, UserPlan,
 } from "./types";
 import { EMERGENCY_FUND_ID, emergencyLevels, emergencyLevelReached, groupTotals, muros4Total } from "@/lib/finance";
