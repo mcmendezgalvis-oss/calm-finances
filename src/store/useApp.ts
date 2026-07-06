@@ -82,6 +82,7 @@ const initialState: AppState = {
   shields: [],
   debts: [],
   trophies: [],
+  emergencyLevelsOverride: {},
 };
 
 const REDEEM_CODES = new Set(["CALMA2026", "FINANZAS30", "RUTACOMPLETA"]);
