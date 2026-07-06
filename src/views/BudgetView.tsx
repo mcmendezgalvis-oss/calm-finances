@@ -49,17 +49,28 @@ export function BudgetView() {
   }, [monthKey]);
   const hasPrev = !!months[prevKey] && months[prevKey].lines.length > 0;
   const copiedThisMonth = !!copiedByMonth[monthKey];
-  const showCopy = hasPrev && !closed && !copiedThisMonth;
+  // Consider the current month "empty" when every line has 0 planned & 0 real.
+  // In that case we always re-offer the "Copy previous" button, even if the
+  // session flag says the user already copied at some point (e.g. after reset).
+  const isMonthEmpty = month.lines.every((l) => (l.planned ?? 0) === 0 && (l.real ?? 0) === 0);
+  const showCopy = hasPrev && !closed && (!copiedThisMonth || isMonthEmpty);
 
   const overdrawn = Boolean(month.overdrawn);
   const balancePositive = realBalance >= -0.005;
 
-  const tabBg =
-    tab === "plan" ? "bg-white" : tab === "real" ? "bg-[#FFF8F8]" : "bg-[#F4F9F5]";
+  // Per-tab palette. `header` is the resting color of the tab trigger (also
+  // the color of the content sheet when active). `border` is a subtle divider
+  // color that keeps inactive tabs visually separated from the sheet.
+  const tabPalette: Record<BudgetTab, { header: string; border: string }> = {
+    plan: { header: "#FFFFFF", border: "#E7E1D8" },
+    real: { header: "#FFF8F8", border: "#F1D9D9" },
+    diff: { header: "#F4F9F5", border: "#D5E7DA" },
+  };
+  const activeBg = tabPalette[tab].header;
 
   return (
     <AppShell>
-      <div className={`-mx-5 md:-mx-10 -my-6 md:-my-10 px-5 md:px-10 py-6 md:py-10 min-h-full transition-colors ${tabBg}`}>
+      <div className="-mx-5 md:-mx-10 -my-6 md:-my-10 px-5 md:px-10 py-6 md:py-10 min-h-full">
       <header className="mb-8">
         <div className="flex flex-wrap gap-4 items-end justify-between">
           <div>
@@ -132,24 +143,50 @@ export function BudgetView() {
         )}
       </header>
 
-      <div className="bg-white border border-sage-100 rounded-[32px] overflow-hidden shadow-sm">
-        <div className="flex border-b border-sage-100">
-          {(["plan", "real", "diff"] as const).map((k) => (
-            <button
-              key={k}
-              onClick={() => setTab(k)}
-              className={`flex-1 py-5 text-sm font-medium transition-colors ${
-                tab === k
-                  ? "border-b-2 border-sage-900 text-sage-900"
-                  : "text-sage-400 hover:text-sage-600"
-              }`}
-            >
-              {t.budget.tabs[k]}
-            </button>
-          ))}
+      <div
+        className="border border-sage-100 rounded-[32px] overflow-hidden shadow-sm transition-colors"
+        style={{ backgroundColor: activeBg }}
+      >
+        <div className="flex gap-1 px-1 pt-1">
+          {(["plan", "real", "diff"] as const).map((k) => {
+            const active = tab === k;
+            const pal = tabPalette[k];
+            return (
+              <button
+                key={k}
+                onClick={() => setTab(k)}
+                className={`flex-1 py-4 text-sm font-medium transition-all rounded-t-2xl ${
+                  active
+                    ? "text-sage-900 shadow-[0_-1px_0_rgba(0,0,0,0.03)]"
+                    : "text-sage-500 hover:text-sage-700"
+                }`}
+                style={{
+                  backgroundColor: pal.header,
+                  opacity: active ? 1 : 0.75,
+                  borderTop: `1px solid ${pal.border}`,
+                  borderLeft: `1px solid ${pal.border}`,
+                  borderRight: `1px solid ${pal.border}`,
+                  borderBottom: active
+                    ? `1px solid ${pal.header}`
+                    : `1px solid ${pal.border}`,
+                  marginBottom: active ? -1 : 0,
+                  position: "relative",
+                  zIndex: active ? 2 : 1,
+                }}
+              >
+                {t.budget.tabs[k]}
+              </button>
+            );
+          })}
         </div>
 
-        <div className="p-6 md:p-8">
+        <div
+          className="p-6 md:p-8 transition-colors"
+          style={{
+            backgroundColor: activeBg,
+            borderTop: `1px solid ${tabPalette[tab].border}`,
+          }}
+        >
           {tab === "diff" && (
             <div
               className={`mb-6 rounded-3xl p-5 border-2 ${
