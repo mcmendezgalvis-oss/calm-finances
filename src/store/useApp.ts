@@ -441,7 +441,7 @@ export const useApp = create<Store>()(
               ? {
                   ...sh,
                   balance: sh.balance + amount,
-                  history: [...sh.history, { id: uid(), date: date ?? new Date().toISOString(), type: "deposit", amount, note } as ShieldTx],
+                  history: [...sh.history, { id: uid(), date: date ?? new Date().toISOString(), type: "deposit", amount, note: note ?? "Aporte manual", source: "manual" } as ShieldTx],
                 }
               : sh,
           );
@@ -466,7 +466,7 @@ export const useApp = create<Store>()(
               ? {
                   ...sh,
                   balance: Math.max(0, sh.balance - amount),
-                  history: [...sh.history, { id: uid(), date: date ?? new Date().toISOString(), type: "withdraw", amount, note } as ShieldTx],
+                  history: [...sh.history, { id: uid(), date: date ?? new Date().toISOString(), type: "withdraw", amount, note: note ?? "Aporte manual", source: "manual" } as ShieldTx],
                 }
               : sh,
           ),
@@ -575,7 +575,7 @@ export const useApp = create<Store>()(
               ...d,
               adjustments: [
                 ...d.adjustments,
-                { id: uid(), date: date ?? new Date().toISOString(), delta: -amount, note: note ?? "Pago" } as DebtAdjustment,
+                { id: uid(), date: date ?? new Date().toISOString(), delta: -amount, note: note ?? "Abono manual", source: "manual" } as DebtAdjustment,
               ],
             };
           }),
