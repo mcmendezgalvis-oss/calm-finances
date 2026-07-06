@@ -114,20 +114,21 @@ export function BudgetView() {
             {closed ? <Unlock className="size-3.5" /> : <Lock className="size-3.5" />}
             {closed ? t.closeMonth.reopenBtn : t.closeMonth.closeBtn}
           </button>
-          {!closed && (tab === "plan" || tab === "real") && (
+          {!closed && (
             <button
               onClick={() => {
-                const msg = tab === "plan" ? t.budgetReset.confirmPlan : t.budgetReset.confirmActual;
-                if (!window.confirm(msg)) return;
-                if (tab === "plan") resetPlan(monthKey); else resetActual(monthKey);
-                // Reset also re-enables the "Copy previous" button so the user can rebuild.
+                if (!window.confirm(t.budgetReset.confirmAll)) return;
+                resetPlan(monthKey);
+                resetActual(monthKey);
+                // Reset fully re-enables "Copy previous" for this exact month so
+                // the user can either type a fresh plan or copy the previous one again.
                 setCopiedByMonth((m) => ({ ...m, [monthKey]: false }));
                 toast.success(t.budgetReset.doneToast);
               }}
               className="inline-flex items-center gap-2 text-xs px-4 py-2 rounded-full bg-white border border-sage-200 text-sage-700 hover:bg-sage-50 transition-colors"
             >
               <RotateCcw className="size-3.5" />
-              {tab === "plan" ? t.budgetReset.planBtn : t.budgetReset.actualBtn}
+              {t.budgetReset.allBtn}
             </button>
           )}
         </div>

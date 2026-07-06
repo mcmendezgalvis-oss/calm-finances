@@ -98,8 +98,10 @@ type DictShape = {
     incomeChain: string;
   };
   budgetReset: {
+    allBtn: string;
     planBtn: string;
     actualBtn: string;
+    confirmAll: string;
     confirmPlan: string;
     confirmActual: string;
     doneToast: string;
@@ -356,8 +358,10 @@ export const dict: Record<Lang, DictShape> = {
       incomeChain: "El sobrante en el mes siguiente fue ajustado para no duplicar dinero.",
     },
     budgetReset: {
+      allBtn: "Empezar de cero",
       planBtn: "Empezar de cero (Plan)",
       actualBtn: "Empezar de cero (Realidad)",
+      confirmAll: "¿Poner en cero todos los valores planeados y reales de este mes? Las categorías se conservan.",
       confirmPlan: "¿Poner en cero todos los valores planeados de este mes? Las categorías se conservan.",
       confirmActual: "¿Poner en cero todos los valores reales de este mes? Las categorías se conservan.",
       doneToast: "Listo, empezamos de nuevo con calma.",
@@ -615,8 +619,10 @@ export const dict: Record<Lang, DictShape> = {
       incomeChain: "The surplus line in the next month was adjusted so money isn't duplicated.",
     },
     budgetReset: {
+      allBtn: "Start over",
       planBtn: "Start over (Plan)",
       actualBtn: "Start over (Reality)",
+      confirmAll: "Zero out all planned and real values for this month? Categories are kept.",
       confirmPlan: "Zero out all planned values for this month? Categories are kept.",
       confirmActual: "Zero out all real values for this month? Categories are kept.",
       doneToast: "Done, we're starting fresh with calm.",
