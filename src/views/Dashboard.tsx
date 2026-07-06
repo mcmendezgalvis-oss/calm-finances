@@ -98,7 +98,7 @@ export function Dashboard() {
       <IncomeDestinationPie />
 
       <PremiumGate allowReadOnly>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6">
           <section className="bg-white border border-sage-100 rounded-3xl p-6">
             <ChartTitleHelp
               title={`${t.dashboard.evolution} · ${period.year}`}
@@ -119,8 +119,6 @@ export function Dashboard() {
             </HScrollChart>
           </section>
 
-          <EmergencyFundEvolutionChart year={period.year} />
-          <GoalsBarChart year={period.year} />
           <DebtsBarChart year={period.year} />
         </div>
       </PremiumGate>
