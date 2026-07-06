@@ -72,6 +72,7 @@ interface Actions {
   closeMonth: (monthKey: string, allocation: SurplusAllocation) => { ok: boolean; reason?: string };
   reopenMonth: (monthKey: string, mode: "continue" | "restore") => { ok: boolean; reason?: string; notice?: string };
   resetAll: () => void;
+  setEmergencyLevelOverride: (key: "l1" | "l2" | "l3", value: number | null) => void;
 }
 
 export type Store = AppState & Actions;
