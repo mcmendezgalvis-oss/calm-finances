@@ -27,6 +27,18 @@ export function emptyMonth(monthKey: string): MonthBudget {
   return { monthKey, lines: [] };
 }
 
+/** ISO of the first day of the month expressed by a "YYYY-MM" monthKey. */
+function firstOfMonthKeyISO(monthKey: string): string {
+  const [y, m] = monthKey.split("-").map(Number);
+  return new Date(y, m - 1, 1).toISOString();
+}
+
+/** Names used across languages for the "previous month surplus" income line. */
+function isCarrySurplusName(name: string): boolean {
+  const n = name.trim().toLowerCase();
+  return n === "sobrante mes anterior" || n === "previous month surplus" || n === "surplus from previous month";
+}
+
 interface Actions {
   ensureMonth: (monthKey: string) => MonthBudget;
   ensureEmergencyFund: () => void;
@@ -97,7 +109,7 @@ function reconcileBudgetSourceForMonth(
 ): { shields: Shield[]; debts: Debt[] } {
   const month = state.months[monthKey];
   if (!month) return { shields: state.shields, debts: state.debts };
-  const now = new Date().toISOString();
+  const entryDate = firstOfMonthKeyISO(monthKey);
 
   // Debts
   const debtsByLinked = new Map<string, BudgetLine>();
@@ -116,7 +128,7 @@ function reconcileBudgetSourceForMonth(
       desired > 0
         ? [
             ...kept,
-            { id: uid(), date: now, delta: -desired, note: "Abono desde presupuesto", source: "budget", monthKey } as DebtAdjustment,
+            { id: uid(), date: entryDate, delta: -desired, note: "Abono desde presupuesto", source: "budget", monthKey } as DebtAdjustment,
           ]
         : kept;
     const newBalance = Math.max(0, d.currentBalance - priorSum + (desired > 0 ? -desired : 0));
@@ -139,7 +151,7 @@ function reconcileBudgetSourceForMonth(
       desired !== 0
         ? [
             ...kept,
-            { id: uid(), date: now, type: (desired >= 0 ? "deposit" : "withdraw"), amount: Math.abs(desired), note: "Aporte desde presupuesto", source: "budget", monthKey } as ShieldTx,
+            { id: uid(), date: entryDate, type: (desired >= 0 ? "deposit" : "withdraw"), amount: Math.abs(desired), note: "Aporte desde presupuesto", source: "budget", monthKey } as ShieldTx,
           ]
         : kept;
     const newBalance = Math.max(0, sh.balance - priorSigned + desired);
