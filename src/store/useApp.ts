@@ -72,6 +72,7 @@ interface Actions {
   closeMonth: (monthKey: string, allocation: SurplusAllocation) => { ok: boolean; reason?: string };
   reopenMonth: (monthKey: string, mode: "continue" | "restore") => { ok: boolean; reason?: string; notice?: string };
   resetAll: () => void;
+  setEmergencyLevelOverride: (key: "l1" | "l2" | "l3", value: number | null) => void;
 }
 
 export type Store = AppState & Actions;
@@ -82,6 +83,7 @@ const initialState: AppState = {
   shields: [],
   debts: [],
   trophies: [],
+  emergencyLevelsOverride: {},
 };
 
 const REDEEM_CODES = new Set(["CALMA2026", "FINANZAS30", "RUTACOMPLETA"]);
@@ -747,6 +749,14 @@ export const useApp = create<Store>()(
       },
 
       resetAll: () => set({ ...initialState }),
+
+      setEmergencyLevelOverride: (key, value) =>
+        set((s) => ({
+          emergencyLevelsOverride: {
+            ...(s.emergencyLevelsOverride ?? {}),
+            [key]: value == null ? undefined : value,
+          },
+        })),
 
       closeMonth: (monthKey, allocation) => {
         const s = get();
