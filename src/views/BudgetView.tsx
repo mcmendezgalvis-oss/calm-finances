@@ -72,6 +72,7 @@ export function BudgetView() {
 
   const overdrawn = Boolean(month.overdrawn);
   const balancePositive = realBalance >= -0.005;
+  const balanceZero = Math.abs(realBalance) < 0.005;
 
   // Per-tab palette. `header` is the resting color of the tab trigger (also
   // the color of the content sheet when active). `border` is a subtle divider
@@ -223,7 +224,7 @@ export function BudgetView() {
                 {!balancePositive && <AlertTriangle className="size-6 text-clay shrink-0 mt-1" />}
               </div>
               <p className={`text-xs mt-3 leading-relaxed ${balancePositive ? "text-sage-700" : "text-clay"}`}>
-                {balancePositive ? t.budgetSummary.myCalmPositive : t.budgetSummary.myCalmNegative}
+                {balanceZero ? t.budgetSummary.myCalmZero : balancePositive ? t.budgetSummary.myCalmPositive : t.budgetSummary.myCalmNegative}
               </p>
             </div>
           )}

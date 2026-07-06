@@ -120,6 +120,7 @@ type DictShape = {
     myCalmTitle: string;
     myCalmPositive: string;
     myCalmNegative: string;
+    myCalmZero: string;
   };
   deleteGoal: {
     btn: string;
@@ -380,6 +381,7 @@ export const dict: Record<Lang, DictShape> = {
       myCalmTitle: "Balance real del mes",
       myCalmPositive: "Tu mes cerró con calma. Este sobrante puede ir a tus deudas, escudos, o al próximo mes.",
       myCalmNegative: "Tu mes cerró sobregirado. Revisa de dónde vino la diferencia (¿deuda nueva, préstamo?) y actualiza tus saldos en Adiós a las Cadenas.",
+      myCalmZero: "Tu mes cerró con calma.",
     },
     deleteGoal: {
       btn: "Eliminar meta",
@@ -641,6 +643,7 @@ export const dict: Record<Lang, DictShape> = {
       myCalmTitle: "Real balance this month",
       myCalmPositive: "Your month closed with calm. This surplus can go to your debts, shields, or next month.",
       myCalmNegative: "Your month closed overdrawn. Look at where the difference came from (new debt, a loan?) and update your balances in Goodbye to Chains.",
+      myCalmZero: "Your month closed with calm.",
     },
     deleteGoal: {
       btn: "Delete goal",
