@@ -750,6 +750,14 @@ export const useApp = create<Store>()(
 
       resetAll: () => set({ ...initialState }),
 
+      setEmergencyLevelOverride: (key, value) =>
+        set((s) => ({
+          emergencyLevelsOverride: {
+            ...(s.emergencyLevelsOverride ?? {}),
+            [key]: value == null ? undefined : value,
+          },
+        })),
+
       closeMonth: (monthKey, allocation) => {
         const s = get();
         const month = s.months[monthKey];
